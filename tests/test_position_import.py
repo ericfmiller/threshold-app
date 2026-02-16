@@ -30,8 +30,8 @@ class TestParseHoldingsSheet:
         assert result[0]["market_value"] == 17000.0
         assert result[0]["weight"] == 0.40
 
-    def test_skips_cash_and_total(self):
-        """Should skip CASH, TOTAL, and ACCOUNT TOTAL rows."""
+    def test_keeps_cash_skips_total(self):
+        """Should keep CASH (real value) but skip TOTAL / ACCOUNT TOTAL."""
         df = pd.DataFrame({
             "Symbol": ["AAPL", "CASH", "TOTAL", "ACCOUNT TOTAL"],
             "Shares": [100, 0, 0, 0],
@@ -40,8 +40,40 @@ class TestParseHoldingsSheet:
             "% of Portfolio": [50.0, 50.0, 100.0, 100.0],
         })
         result = _parse_holdings_sheet(df)
-        assert len(result) == 1
-        assert result[0]["symbol"] == "AAPL"
+        assert len(result) == 2
+        symbols = {p["symbol"] for p in result}
+        assert "AAPL" in symbols
+        assert "CASH" in symbols
+        assert "TOTAL" not in symbols
+
+    def test_cash_with_dash_shares(self):
+        """CASH rows often have '-' for shares — should still import."""
+        df = pd.DataFrame({
+            "Symbol": ["AAPL", "CASH"],
+            "Shares": [100, "-"],
+            "Cost": [15000, "-"],
+            "Value": [17000, 5000],
+            "Weight": [0.77, 0.23],
+        })
+        result = _parse_holdings_sheet(df)
+        assert len(result) == 2
+        cash = [p for p in result if p["symbol"] == "CASH"][0]
+        assert cash["market_value"] == 5000.0
+        assert cash["shares"] == 0.0
+
+    def test_blank_symbol_with_value_treated_as_cash(self):
+        """Rows with no symbol but positive value should be captured as CASH."""
+        df = pd.DataFrame({
+            "Symbol": ["AAPL", "", None],
+            "Shares": [100, 0, 0],
+            "Value": [17000, 3000, 0],
+            "Weight": [0.85, 0.15, 0],
+        })
+        result = _parse_holdings_sheet(df)
+        symbols = [p["symbol"] for p in result]
+        assert "AAPL" in symbols
+        assert "CASH" in symbols
+        assert len(result) == 2  # blank with value=0 is skipped
 
     def test_skips_zero_value_positions(self):
         """Should skip positions with zero shares and zero value."""

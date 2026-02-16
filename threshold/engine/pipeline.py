@@ -581,7 +581,7 @@ def _persist_results(
             spy_above_200d=int(result.spy_above_200d),
             spy_pct_from_200d=round(result.spy_pct_from_200d, 4),
             breadth_pct=round(result.breadth_pct, 4),
-            market_regime_score=round(result.market_regime_score, 4),
+            mr_score=round(result.market_regime_score, 4),
             tickers_scored=tracker.tickers_scored,
             tickers_failed=tracker.tickers_failed,
             effective_bets=round(result.correlation.effective_bets, 2),
@@ -598,7 +598,7 @@ def _persist_results(
                 dcs_signal=score_data.get("dcs_signal", ""),
                 mq=sub_scores.get("MQ", 0),
                 fq=sub_scores.get("FQ", 0),
-                to=sub_scores.get("TO", 0),
+                tov=sub_scores.get("TO", 0),
                 mr=sub_scores.get("MR", 0),
                 vc=sub_scores.get("VC", 0),
                 is_etf=int(score_data.get("is_etf", False)),
@@ -623,7 +623,7 @@ def _persist_results(
         update_scoring_run(
             db,
             tracker.run_id,
-            completed_at=datetime.now().isoformat(),
+            finished_at=datetime.now().isoformat(),
             status="completed",
         )
 

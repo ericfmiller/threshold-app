@@ -201,6 +201,10 @@ def classify_vix(vix: float, boundaries: dict[str, list[int]] | None = None) -> 
             "PANIC": [28, 999],
         }
 
+    # Support both plain dicts and Pydantic model objects
+    if hasattr(boundaries, "model_dump"):
+        boundaries = boundaries.model_dump()
+
     for regime, (lo, hi) in boundaries.items():
         if lo <= vix < hi:
             return regime

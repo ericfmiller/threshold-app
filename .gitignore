@@ -33,13 +33,22 @@ Thumbs.db
 *.db
 ~/.threshold/
 
-# Personal financial data
+# Personal financial data — NEVER commit holdings or export files
 data/exports/
 data/backtest/
 data/z-files/
 score_history/
 workbooks/
 portfolios/
+
+# User portfolio & watchlist upload folders (contain personal holdings data)
+# The folders themselves are tracked (via .gitkeep) so they exist after clone
+Poftfolio Files/*
+!Poftfolio Files/.gitkeep
+!Poftfolio Files/README.txt
+Watchlist Files/*
+!Watchlist Files/.gitkeep
+!Watchlist Files/README.txt
 
 # SA API data
 sa_ratings_*.json

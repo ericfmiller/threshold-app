@@ -15,9 +15,12 @@ from typing import Any
 
 import pandas as pd
 
-from threshold.data.onboarding import SKIP_TICKERS
-
 logger = logging.getLogger(__name__)
+
+# Rows to always skip in Holdings sheets (aggregation rows, not positions).
+# CASH is intentionally NOT here — it has real market value.
+# Note: empty string "" is NOT in this set — blank symbols may be cash rows.
+_HOLDINGS_SKIP = frozenset({"TOTAL", "ACCOUNT TOTAL", "NAN"})
 
 
 @dataclass
@@ -27,6 +30,23 @@ class ImportResult:
     positions_imported: int = 0
     accounts_processed: int = 0
     errors: list[str] = field(default_factory=list)
+
+
+def _safe_float(val: Any) -> float:
+    """Convert a value to float, returning 0.0 on failure.
+
+    SA exports use "-" for fields that don't apply (e.g. shares/cost on
+    cash rows). This must not break parsing of other fields.
+    """
+    try:
+        return float(val or 0)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+# Symbols that represent cash positions, even when the Symbol column
+# is blank or contains a money-market fund name.
+_CASH_SYMBOLS = frozenset({"CASH", "SPAXX", "FDRXX", "FCASH", "CORE"})
 
 
 def _parse_holdings_sheet(
@@ -44,6 +64,14 @@ def _parse_holdings_sheet(
     list[dict]
         List of position dicts with: symbol, shares, cost_basis,
         market_value, weight.
+
+    Notes
+    -----
+    Cash rows are always captured (as symbol ``CASH``) because they
+    contribute real dollar value to account totals. They may appear as:
+    - Symbol = "CASH" with shares = "-"
+    - Symbol blank / NaN but Value > 0 (some export formats)
+    - Symbol = a money-market fund (SPAXX, FDRXX, etc.)
     """
     if holdings_df is None or holdings_df.empty:
         return []
@@ -51,23 +79,32 @@ def _parse_holdings_sheet(
     positions: list[dict[str, Any]] = []
 
     for _, row in holdings_df.iterrows():
-        symbol = str(row.get("Symbol", "")).strip().upper()
-        if not symbol or symbol in SKIP_TICKERS:
-            continue
-        # Skip NaN symbols
-        if symbol == "NAN" or pd.isna(row.get("Symbol")):
+        raw_symbol = row.get("Symbol", "")
+        symbol = str(raw_symbol).strip().upper() if not pd.isna(raw_symbol) else ""
+
+        # Skip aggregation rows (TOTAL, ACCOUNT TOTAL, etc.)
+        if symbol in _HOLDINGS_SKIP:
             continue
 
-        try:
-            shares = float(row.get("Shares", 0) or 0)
-            cost_basis = float(row.get("Cost Basis", 0) or 0)
-            market_value = float(row.get("Market Value", 0) or 0)
-            weight = float(row.get("% of Portfolio", 0) or 0) / 100.0
-        except (ValueError, TypeError):
-            shares = 0.0
-            cost_basis = 0.0
-            market_value = 0.0
-            weight = 0.0
+        # Detect cash rows: explicit CASH symbol, money-market fund,
+        # or blank symbol with positive value.
+        is_cash = symbol in _CASH_SYMBOLS
+        if not symbol:
+            # Row with no symbol — check if it has value (likely cash)
+            test_val = _safe_float(row.get("Value", row.get("Market Value", 0)))
+            if test_val > 0:
+                is_cash = True
+            else:
+                continue  # truly empty row
+
+        if is_cash:
+            symbol = "CASH"  # normalize all cash variants
+
+        shares = _safe_float(row.get("Shares", 0))
+        cost_basis = _safe_float(row.get("Cost", row.get("Cost Basis", 0)))
+        market_value = _safe_float(row.get("Value", row.get("Market Value", 0)))
+        raw_weight = _safe_float(row.get("Weight", row.get("% of Portfolio", 0)))
+        weight = raw_weight if raw_weight <= 1.0 else raw_weight / 100.0
 
         if shares <= 0 and market_value <= 0:
             continue
@@ -122,6 +159,20 @@ def import_positions_from_export(
     if not positions:
         logger.warning("No valid positions in Holdings sheet of %s", export_path)
         return 0
+
+    # Ensure CASH ticker exists in the DB (FK requirement).
+    # Auto-register it the first time a cash position appears.
+    has_cash = any(p["symbol"] == "CASH" for p in positions)
+    if has_cash:
+        from threshold.storage.queries import get_ticker, upsert_ticker
+
+        if get_ticker(db, "CASH") is None:
+            upsert_ticker(
+                db, symbol="CASH", name="Cash & Cash Equivalents",
+                type="fund", sector="Cash", is_cash=True,
+            )
+            db.conn.commit()
+            logger.info("Auto-registered CASH ticker")
 
     count = 0
     for pos in positions:

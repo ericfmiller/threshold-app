@@ -36,16 +36,32 @@ def import_registry(ctx: click.Context, path: str) -> None:
     with open(path) as f:
         registry = json.load(f)
 
+    # Support both flat {AAPL: {...}, ...} and nested {tickers: {AAPL: {...}}}
+    if "tickers" in registry and isinstance(registry["tickers"], dict):
+        ticker_data = registry["tickers"]
+    else:
+        ticker_data = registry
+
+    # Map legacy type names to DB-compatible values
+    type_map = {
+        "equity": "stock",
+        "cryptocurrency": "crypto",
+        "tsp": "fund",
+        "": "stock",
+    }
+
     count = 0
     with Database(db_path) as db:
-        for symbol, data in registry.items():
+        for symbol, data in ticker_data.items():
             if symbol.startswith("_"):
                 continue  # Skip metadata keys
+            raw_type = data.get("type", "stock") or "stock"
+            mapped_type = type_map.get(raw_type, raw_type)
             upsert_ticker(
                 db,
                 symbol=symbol,
                 name=data.get("name"),
-                type=data.get("type"),
+                type=mapped_type,
                 sector=data.get("sector"),
                 sector_detail=data.get("sector_detail"),
                 yf_symbol=data.get("yf_symbol"),
@@ -112,7 +128,14 @@ def import_scores(ctx: click.Context, dir_path: str, limit: int) -> None:
             date_part = filepath.stem.replace("weekly_scores_", "")
             run_id = f"import-{date_part}"
 
-            # Insert scoring run
+            # Insert scoring run (skip if already exists)
+            existing = db.fetchone(
+                "SELECT run_id FROM scoring_runs WHERE run_id = ?", (run_id,)
+            )
+            if existing:
+                click.echo(f"  Skipping {filepath.name}: already imported")
+                continue
+
             insert_scoring_run(
                 db,
                 run_id=run_id,
@@ -125,16 +148,18 @@ def import_scores(ctx: click.Context, dir_path: str, limit: int) -> None:
 
             # Insert scores
             for symbol, score_data in scores_dict.items():
-                sub_scores = score_data.get("sub_scores", {})
+                # Handle nested sub_scores: {dcs: {MQ:..}} or flat {MQ:..}
+                raw_sub = score_data.get("sub_scores", {})
+                sub_scores = raw_sub.get("dcs", raw_sub) if isinstance(raw_sub, dict) else {}
                 insert_score(
                     db,
                     run_id=run_id,
                     symbol=symbol,
                     dcs=score_data.get("dcs", 0),
-                    dcs_signal=score_data.get("dcs_signal", ""),
+                    dcs_signal=score_data.get("dcs_signal") or "",
                     mq=sub_scores.get("MQ", 0),
                     fq=sub_scores.get("FQ", 0),
-                    to=sub_scores.get("TO", 0),
+                    tov=sub_scores.get("TO", 0),
                     mr=sub_scores.get("MR", 0),
                     vc=sub_scores.get("VC", 0),
                     is_etf=int(score_data.get("is_etf", False)),
@@ -167,12 +192,23 @@ def import_drawdown(ctx: click.Context, path: str) -> None:
     # Extract date from filename or metadata
     filepath = Path(path)
     date_part = filepath.stem.replace("drawdown_defense_", "")
-    backtest_date = data.get("_metadata", {}).get("backtest_date", date_part)
+    backtest_date = (
+        data.get("_metadata", {}).get("backtest_date")
+        or data.get("metadata", {}).get("run_date")
+        or date_part
+    )
 
-    classifications = data.get("classifications", data)
-    if isinstance(classifications, dict) and "_metadata" in classifications:
-        # Top-level dict with metadata — remove it
-        classifications = {k: v for k, v in classifications.items() if not k.startswith("_")}
+    # Support multiple JSON layouts:
+    # Layout 1: {results: {SYM: {...}}} (from drawdown_defense_backtest.py)
+    # Layout 2: {classifications: {SYM: {...}}}
+    # Layout 3: flat {SYM: {...}, _metadata: {...}}
+    classifications = (
+        data.get("results")
+        or data.get("classifications")
+        or data
+    )
+    if isinstance(classifications, dict):
+        classifications = {k: v for k, v in classifications.items() if not k.startswith("_") and k not in ("metadata", "episodes")}
 
     count = 0
     with Database(db_path) as db:
@@ -187,7 +223,7 @@ def import_drawdown(ctx: click.Context, path: str) -> None:
                     symbol=symbol,
                     classification=classification,
                     downside_capture=dd_data.get("downside_capture", 0),
-                    win_rate=dd_data.get("win_rate", 0),
+                    win_rate_in_dd=dd_data.get("win_rate", dd_data.get("win_rate_in_dd", 0)),
                 )
                 count += 1
 
