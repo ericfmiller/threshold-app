@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "threshold-app"
+version = "0.1.0"
+description = "Quantitative investment analysis system with empirically calibrated scoring engine"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Eric Miller" },
+]
+keywords = ["investing", "quantitative", "portfolio", "scoring", "momentum"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.0",
+    "yfinance>=0.2",
+    "openpyxl>=3.1",
+    "requests>=2.31",
+    "browser-cookie3>=0.19",
+    "python-dotenv>=1.0",
+    "scipy>=1.11",
+    "fredapi>=0.5",
+    "plotly>=5.18",
+    "click>=8.1",
+    "pyyaml>=6.0",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "hypothesis>=6.0",
+    "mypy>=1.8",
+    "ruff>=0.2",
+    "types-requests>=2.31",
+    "types-PyYAML>=6.0",
+]
+
+[project.scripts]
+threshold = "threshold.cli.main:cli"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+strict = false
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["threshold"]

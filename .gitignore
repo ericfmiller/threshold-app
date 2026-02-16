@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment & secrets
+.env
+*.pem
+*.key
+
+# Threshold data (user-specific, never committed)
+*.db
+~/.threshold/
+
+# Personal financial data
+data/exports/
+data/backtest/
+data/z-files/
+score_history/
+workbooks/
+portfolios/
+
+# SA API data
+sa_ratings_*.json
+
+# Logs
+*.log
+logs/
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# CLAUDE.md (personal config)
+CLAUDE.md

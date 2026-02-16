@@ -1,0 +1,107 @@
+# Threshold Investment Analysis System Configuration
+# ===================================================
+# Copy this file to ~/.threshold/config.yaml and edit it.
+# All values shown are the defaults — only override what you need.
+# Environment variables can be referenced as ${VAR_NAME}.
+
+version: 1
+
+# --- Data Sources ---
+data_sources:
+  yfinance:
+    enabled: true
+    price_period: "2y"          # OHLCV history window
+    fundamentals_delay: 0.3     # Seconds between .info API calls
+
+  tiingo:
+    enabled: true
+    api_key: "${TIINGO_API_KEY}"  # Get free key at https://api.tiingo.com
+    base_url: "https://api.tiingo.com/tiingo/daily"
+    rate_delay: 1.5             # Free tier: 50 req/hour
+
+  seeking_alpha:
+    enabled: true
+    api_url: "https://seekingalpha.com/api/v3/symbols/{symbol}/ratings"
+    export_dir: ""              # Directory containing SA Excel exports
+    stale_threshold_days: 2     # Warn when SA data older than this
+
+  fred:
+    enabled: true
+    api_key: "${FRED_API_KEY}"  # Get free key at https://fred.stlouisfed.org/docs/api/api_key.html
+
+# --- Scoring Engine ---
+# All weights are backtest-calibrated (124K obs, 625 tickers, 2007-2025).
+# Override only if you have evidence the change improves outcomes.
+scoring:
+  weights:
+    MQ: 30    # Momentum Quality
+    FQ: 25    # Fundamental Quality
+    TO: 20    # Technical Oversold
+    MR: 15    # Market Regime
+    VC: 10    # Valuation Context
+
+  thresholds:
+    strong_buy_dip: 80    # 53.8% win rate
+    high_conviction: 70   # 60.0% win rate
+    buy_dip: 65           # 58.9% win rate, CI [57.7%-60.1%]
+    watch: 50
+    weak: 35
+
+# --- Sell Criteria ---
+sell_criteria:
+  sma_breach_days: 10           # Consecutive days >3% below 200d SMA
+  sma_breach_threshold: -0.03   # 3% below 200d SMA
+  quant_drop_threshold: -1.0    # SA Quant drop in 30 days
+
+# --- Allocation ---
+allocation:
+  targets:
+    equities: 0.70
+    hard_money: 0.20
+    cash: 0.10
+  rebalance_trigger: 0.05
+
+# --- Deployment (Level 2.5) ---
+deployment:
+  gate3_rsi_max: 80             # RSI above this = parabolic
+  gate3_ret_8w_max: 0.30        # 30% in 8 weeks = parabolic
+
+# --- Accounts ---
+# Define your brokerage accounts here. sa_export_prefix must match
+# the beginning of your SA export filenames.
+accounts:
+  # Example:
+  # - id: individual_brokerage
+  #   name: "Individual Brokerage"
+  #   type: taxable
+  #   institution: Fidelity
+  #   tax_treatment: taxable
+  #   sa_export_prefix: "Fidelity - Individual - Brokerage"
+
+# --- Separate Holdings ---
+# Assets held outside your main brokerage (e.g., crypto in cold storage)
+separate_holdings:
+  # - symbol: BTC-USD
+  #   quantity: 1.0
+  #   description: "Bitcoin held separately"
+
+# --- Alerts ---
+alerts:
+  enabled: false
+  email:
+    to: "${EMAIL_TO}"
+    from: "${EMAIL_FROM}"
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    app_password: "${GMAIL_APP_PASSWORD}"
+
+# --- Output ---
+output:
+  score_history_dir: "~/.threshold/history"
+  dashboard_dir: "~/.threshold/dashboards"
+  narrative_dir: "~/.threshold/narratives"
+  auto_open_browser: true
+
+# --- Database ---
+database:
+  path: "~/.threshold/threshold.db"
