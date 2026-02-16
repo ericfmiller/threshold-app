@@ -410,6 +410,30 @@ ADVANCED_SENTIMENT = {
 }
 
 # ---------------------------------------------------------------------------
+# Portfolio Construction Defaults (Phase 2D — all disabled by default)
+# ---------------------------------------------------------------------------
+PORTFOLIO_INVERSE_VOL = {
+    "enabled": False,
+    "eta": 1.0,                 # Risk aversion: 1.0 = inverse-variance, 0.5 = inverse-vol
+    "window": 120,              # Lookback window in trading days
+    "min_periods": 60,          # Minimum observations per asset
+}
+
+PORTFOLIO_HRP = {
+    "enabled": False,
+    "linkage_method": "single", # Clustering: "single", "complete", or "average"
+    "min_periods": 60,          # Minimum observations for correlation
+}
+
+PORTFOLIO_TAX = {
+    "enabled": False,
+    "lot_method": "HIFO",       # Lot selection: HIFO, FIFO, LIFO
+    "loss_threshold_pct": 0.02, # 2% minimum loss for harvest trigger
+    "wash_sale_window_days": 30,  # IRS wash sale window
+    "long_term_days": 366,      # Days for long-term capital gains
+}
+
+# ---------------------------------------------------------------------------
 # Data Source Defaults
 # ---------------------------------------------------------------------------
 YFINANCE_DEFAULTS = {

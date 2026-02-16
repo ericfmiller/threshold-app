@@ -31,6 +31,9 @@ from threshold.config.defaults import (
     ADVANCED_FACTOR_MOMENTUM,
     ADVANCED_SENTIMENT,
     ADVANCED_TREND_FOLLOWING,
+    PORTFOLIO_HRP,
+    PORTFOLIO_INVERSE_VOL,
+    PORTFOLIO_TAX,
     RISK_CDAR,
     RISK_CVAR,
     RISK_EBP,
@@ -306,6 +309,37 @@ class AdvancedConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Portfolio Construction Config (Phase 2D — all disabled by default)
+# ---------------------------------------------------------------------------
+
+class InverseVolConfig(BaseModel):
+    enabled: bool = PORTFOLIO_INVERSE_VOL["enabled"]
+    eta: float = PORTFOLIO_INVERSE_VOL["eta"]
+    window: int = PORTFOLIO_INVERSE_VOL["window"]
+    min_periods: int = PORTFOLIO_INVERSE_VOL["min_periods"]
+
+
+class HRPConfig(BaseModel):
+    enabled: bool = PORTFOLIO_HRP["enabled"]
+    linkage_method: str = PORTFOLIO_HRP["linkage_method"]
+    min_periods: int = PORTFOLIO_HRP["min_periods"]
+
+
+class TaxConfig(BaseModel):
+    enabled: bool = PORTFOLIO_TAX["enabled"]
+    lot_method: str = PORTFOLIO_TAX["lot_method"]
+    loss_threshold_pct: float = PORTFOLIO_TAX["loss_threshold_pct"]
+    wash_sale_window_days: int = PORTFOLIO_TAX["wash_sale_window_days"]
+    long_term_days: int = PORTFOLIO_TAX["long_term_days"]
+
+
+class PortfolioConstructionConfig(BaseModel):
+    inverse_vol: InverseVolConfig = Field(default_factory=InverseVolConfig)
+    hrp: HRPConfig = Field(default_factory=HRPConfig)
+    tax: TaxConfig = Field(default_factory=TaxConfig)
+
+
+# ---------------------------------------------------------------------------
 # Sell Criteria Config
 # ---------------------------------------------------------------------------
 
@@ -473,6 +507,9 @@ class ThresholdConfig(BaseModel):
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
     advanced: AdvancedConfig = Field(default_factory=AdvancedConfig)
+    portfolio_construction: PortfolioConstructionConfig = Field(
+        default_factory=PortfolioConstructionConfig
+    )
     sell_criteria: SellCriteriaConfig = Field(default_factory=SellCriteriaConfig)
     allocation: AllocationConfig = Field(default_factory=AllocationConfig)
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
