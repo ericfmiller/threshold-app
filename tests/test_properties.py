@@ -10,10 +10,8 @@ Tests universal invariants that should hold for ANY valid input:
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
-import pytest
-from hypothesis import given, settings, assume, HealthCheck
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from threshold.engine.composite import (
@@ -25,11 +23,10 @@ from threshold.engine.composite import (
     classify_vix,
     compose_dcs,
 )
+from threshold.engine.grades import sa_grade_to_norm
 from threshold.engine.technical import (
     calc_rsi_value,
 )
-from threshold.engine.grades import sa_grade_to_norm
-
 
 # ---------------------------------------------------------------------------
 # Strategies

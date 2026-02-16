@@ -6,9 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from threshold.engine.advanced.trend_following import ContinuousTrendFollower, TrendSignal
-from threshold.engine.advanced.factor_momentum import FactorMomentumSignal, FactorMomentumResult
-
+from threshold.engine.advanced.factor_momentum import FactorMomentumSignal
+from threshold.engine.advanced.trend_following import ContinuousTrendFollower
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -5,17 +5,13 @@ Tests charts, dashboard assembly, narrative generation, and CLI commands.
 
 from __future__ import annotations
 
-import os
-import tempfile
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from threshold.engine.pipeline import PipelineResult
 from threshold.engine.scorer import ScoringResult
 from threshold.portfolio.correlation import CorrelationReport
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -433,8 +429,9 @@ class TestDashboard:
 
 class TestDashboardHelpers:
     def test_embed_plotly(self):
-        from threshold.output.dashboard import _embed_plotly
         import plotly.graph_objects as go
+
+        from threshold.output.dashboard import _embed_plotly
         fig = go.Figure(go.Scatter(x=[1, 2], y=[3, 4]))
         html = _embed_plotly(fig, "test-div")
         assert "test-div" in html
@@ -722,13 +719,9 @@ class TestCLIRegistration:
 class TestOutputPackageImports:
     def test_import_output_package(self):
         from threshold.output import (
-            generate_scoring_alerts,
-            build_scoring_email,
-            save_score_history,
-            load_previous_scores,
-            load_grade_history,
             generate_dashboard,
             generate_narrative,
+            generate_scoring_alerts,
         )
         assert callable(generate_scoring_alerts)
         assert callable(generate_dashboard)
@@ -737,12 +730,6 @@ class TestOutputPackageImports:
     def test_import_charts(self):
         from threshold.output.charts import (
             build_dcs_scatter,
-            build_war_chest_gauge,
-            build_drawdown_defense_bars,
-            build_correlation_heatmap,
-            build_sector_rrg,
-            build_sector_treemap,
-            build_signal_cards_html,
             build_market_context_html,
         )
         assert callable(build_dcs_scatter)

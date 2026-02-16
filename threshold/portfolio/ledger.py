@@ -13,7 +13,6 @@ and config-driven account definitions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from threshold.portfolio.accounts import PortfolioSnapshot
 

@@ -6,19 +6,16 @@ across all test modules.
 
 from __future__ import annotations
 
-import numpy as np
-import pandas as pd
-import sqlite3
-import tempfile
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import pytest
 
 from threshold.config.schema import ThresholdConfig
 from threshold.engine.context import ScoringContext
 from threshold.storage.database import Database
 from threshold.storage.migrations import ensure_schema
-
 
 # ---------------------------------------------------------------------------
 # Core infrastructure

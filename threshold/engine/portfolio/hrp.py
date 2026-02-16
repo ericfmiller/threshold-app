@@ -25,7 +25,7 @@ from typing import TypedDict
 
 import numpy as np
 import pandas as pd
-from scipy.cluster.hierarchy import linkage, leaves_list
+from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.spatial.distance import squareform
 
 
@@ -114,7 +114,6 @@ class HRPAllocator:
         Each half gets weight proportional to the inverse of its
         cluster variance. Recurse until single assets remain.
         """
-        n = len(sort_ix)
         weights = pd.Series(1.0, index=sort_ix)
 
         # List of clusters to process
@@ -137,10 +136,7 @@ class HRPAllocator:
 
                 # Allocation factor: inverse of cluster variance
                 total_var = var_left + var_right
-                if total_var < 1e-12:
-                    alpha = 0.5
-                else:
-                    alpha = 1.0 - var_left / total_var
+                alpha = 0.5 if total_var < 1e-12 else 1.0 - var_left / total_var
 
                 # Scale weights
                 weights[left] *= alpha

@@ -10,10 +10,8 @@ Computes:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from threshold.config.schema import ThresholdConfig
-
 
 # ---------------------------------------------------------------------------
 # Result types

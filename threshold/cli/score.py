@@ -105,7 +105,7 @@ def score_cmd(ctx: click.Context, ticker: str | None, dry_run: bool, no_email: b
 
         # Concentration warnings
         if result.concentration_warnings:
-            click.echo(f"\n⚠️  CONCENTRATION WARNINGS:")
+            click.echo("\n⚠️  CONCENTRATION WARNINGS:")
             for warn in result.concentration_warnings:
                 click.echo(
                     f"  {warn['ticker']} highly correlated ({warn['correlation']:.2f}) "

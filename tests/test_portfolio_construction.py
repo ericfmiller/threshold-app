@@ -6,10 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from threshold.engine.portfolio.inverse_vol import InverseVolWeighter, InverseVolResult
-from threshold.engine.portfolio.hrp import HRPAllocator, HRPResult
+from threshold.engine.portfolio.hrp import HRPAllocator
+from threshold.engine.portfolio.inverse_vol import InverseVolWeighter
 from threshold.engine.portfolio.tax import HIFOSelector, TaxLossHarvester
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -370,8 +369,8 @@ class TestTaxLossHarvester:
 class TestPortfolioImports:
     def test_package_imports(self):
         from threshold.engine.portfolio import (
-            HRPAllocator,
             HIFOSelector,
+            HRPAllocator,
             InverseVolWeighter,
             TaxLossHarvester,
         )

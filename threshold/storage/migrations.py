@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import re
-from importlib import resources
 from pathlib import Path
 
 from threshold.storage.database import Database

@@ -120,7 +120,7 @@ def ticker_info(ctx: click.Context, symbol: str) -> None:
     click.echo(f"  Sector Detail:   {t['sector_detail']}")
     click.echo(f"  YF Symbol:       {t['yf_symbol']}")
     click.echo(f"  Alden Category:  {t['alden_category']}")
-    click.echo(f"  Flags:")
+    click.echo("  Flags:")
     for flag in [
         "is_gold", "is_hard_money", "is_crypto", "is_crypto_exempt",
         "is_cash", "is_war_chest", "is_international",

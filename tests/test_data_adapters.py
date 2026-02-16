@@ -5,17 +5,14 @@ Uses mock yfinance data to avoid real API calls in CI.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from typing import Any
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from threshold.data.adapters.yfinance_adapter import (
     _classify_etf,
     _classify_international,
     enrich_ticker,
 )
-
 
 # ---------------------------------------------------------------------------
 # Mock yfinance info dicts

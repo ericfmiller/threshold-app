@@ -22,15 +22,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from threshold.config.schema import ThresholdConfig
 from threshold.engine.composite import classify_vix
 from threshold.engine.context import ScoringContext
 from threshold.engine.scorer import ScoringResult, score_ticker
-from threshold.engine.technical import calc_rsi_value
-from threshold.portfolio.accounts import PortfolioSnapshot, aggregate_positions
 from threshold.portfolio.correlation import (
     CorrelationReport,
     check_concentration_risk,

@@ -23,7 +23,6 @@ import pandas as pd
 from threshold.engine.grades import sa_grade_to_norm
 from threshold.engine.technical import MACDResult, calc_macd, calc_rsi_value
 
-
 # ---------------------------------------------------------------------------
 # Type definitions
 # ---------------------------------------------------------------------------
@@ -129,10 +128,7 @@ def calc_momentum_quality(
     if spy_close is not None and len(spy_close) >= 252 and n >= 252:
         ticker_12m_ret = (close.iloc[-21] / close.iloc[-252]) - 1.0
         spy_12m_ret = (spy_close.iloc[-21] / spy_close.iloc[-252]) - 1.0
-        if spy_12m_ret != 0:
-            rs_vs_spy = ticker_12m_ret / spy_12m_ret
-        else:
-            rs_vs_spy = 1.0
+        rs_vs_spy = ticker_12m_ret / spy_12m_ret if spy_12m_ret != 0 else 1.0
         rs_score = max(0.0, min(1.0, (rs_vs_spy - 0.3) / 1.4))
 
     # Composite MQ

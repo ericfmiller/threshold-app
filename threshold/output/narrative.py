@@ -25,10 +25,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from threshold.engine.pipeline import PipelineResult
-from threshold.engine.scorer import ScoringResult
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +102,8 @@ def _build_macro_section(result: PipelineResult) -> str:
     lines = [
         "## 1. Macro Backdrop",
         "",
-        f"| Indicator | Value | Status |",
-        f"|-----------|-------|--------|",
+        "| Indicator | Value | Status |",
+        "|-----------|-------|--------|",
         f"| VIX | {vix:.1f} | {_vix_emoji(regime)} |",
         f"| SPY vs 200d SMA | {_pct(spy_pct)} | {'Above' if result.spy_above_200d else '**BELOW**'} |",
         f"| Breadth (% > 200d) | {_pct(breadth, 0)} | {'Healthy' if breadth > 0.5 else '**Weak**'} |",
@@ -379,9 +377,9 @@ def _build_correlation_section(result: PipelineResult) -> str:
     lines.append("")
 
     if corr.is_concentrated:
-        lines.append(f"> **Concentrated portfolio** — effective bets below threshold. "
-                     f"New buy candidates with >0.70 correlation to existing holdings "
-                     f"will receive concentration warnings.")
+        lines.append("> **Concentrated portfolio** — effective bets below threshold. "
+                     "New buy candidates with >0.70 correlation to existing holdings "
+                     "will receive concentration warnings.")
         lines.append("")
 
     # High-correlation pairs
@@ -450,8 +448,8 @@ def _build_war_chest_section(
     surplus = war_chest_pct - war_chest_target
     status = "ADEQUATE" if surplus >= 0 else "**BELOW TARGET**"
 
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| VIX Regime | {_vix_emoji(vix_regime)} |")
     lines.append(f"| Target | {_pct(war_chest_target)} |")
     lines.append(f"| Actual | {_pct(war_chest_pct)} |")

@@ -6,12 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from threshold.engine.risk.ebp import EBPMonitor, EBPSignal
+from threshold.engine.risk.cdar import CDaRCalculator
+from threshold.engine.risk.cvar import CVaRCalculator
+from threshold.engine.risk.ebp import EBPMonitor
+from threshold.engine.risk.momentum_crash import MomentumCrashProtection
 from threshold.engine.risk.turbulence import TurbulenceIndex, TurbulenceSignal
-from threshold.engine.risk.momentum_crash import MomentumCrashProtection, MomentumCrashSignal
-from threshold.engine.risk.cvar import CVaRCalculator, CVaRResult
-from threshold.engine.risk.cdar import CDaRCalculator, CDaRResult
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -41,7 +40,7 @@ def calm_prices() -> pd.DataFrame:
     n = 300
     dates = pd.date_range("2020-01-01", periods=n, freq="B")
     data = {}
-    for i, name in enumerate(["SPY", "EFA", "GLD", "BND"]):
+    for name in ["SPY", "EFA", "GLD", "BND"]:
         drift = 0.0003
         vol = 0.005
         returns = np.random.normal(drift, vol, n)
@@ -57,7 +56,7 @@ def stressed_prices() -> pd.DataFrame:
     n = 300
     dates = pd.date_range("2020-01-01", periods=n, freq="B")
     data = {}
-    for i, name in enumerate(["SPY", "EFA", "GLD", "BND"]):
+    for name in ["SPY", "EFA", "GLD", "BND"]:
         drift = -0.001
         vol = 0.025
         returns = np.random.normal(drift, vol, n)

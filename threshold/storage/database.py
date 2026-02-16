@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class Database:
         except sqlite3.OperationalError:
             return 0
 
-    def __enter__(self) -> "Database":
+    def __enter__(self) -> Database:
         self.connect()
         return self
 

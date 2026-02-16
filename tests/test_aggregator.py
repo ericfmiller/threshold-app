@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from threshold.engine.aggregator import SignalAggregator, CompositeRiskResult
-
+from threshold.engine.aggregator import SignalAggregator
 
 # ---------------------------------------------------------------------------
 # Fixtures

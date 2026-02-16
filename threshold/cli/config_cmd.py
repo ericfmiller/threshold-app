@@ -42,4 +42,4 @@ def config_validate(ctx: click.Context) -> None:
         click.echo(f"  Database: {config.database.path}")
     except Exception as e:
         click.echo(f"Config validation failed: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from None

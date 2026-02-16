@@ -69,10 +69,7 @@ class InverseVolWeighter:
             Series of annualized volatilities indexed by asset name.
         """
         # Use last `window` observations
-        if len(returns) > self.window:
-            recent = returns.iloc[-self.window:]
-        else:
-            recent = returns
+        recent = returns.iloc[-self.window:] if len(returns) > self.window else returns
 
         # Standard deviation of daily returns, annualized
         vols = recent.std(ddof=1) * np.sqrt(self.annualization_factor)

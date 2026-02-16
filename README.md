@@ -1,5 +1,7 @@
 # Threshold
 
+[![CI](https://github.com/ericfmiller/threshold-app/actions/workflows/ci.yml/badge.svg)](https://github.com/ericfmiller/threshold-app/actions/workflows/ci.yml)
+
 Quantitative investment analysis system with an empirically calibrated scoring engine.
 
 Threshold enforces disciplined decision-making through a structured hierarchy: every investment decision passes through empirically calibrated thresholds — buy thresholds, sell thresholds, regime thresholds, deployment gates — before action is taken.

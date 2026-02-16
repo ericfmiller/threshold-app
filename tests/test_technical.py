@@ -7,11 +7,7 @@ import pandas as pd
 import pytest
 
 from threshold.engine.technical import (
-    BBBreachResult,
     MACDResult,
-    OBVResult,
-    ReversalSignals,
-    RSIDivergenceResult,
     calc_bb_lower_breach,
     calc_consecutive_days_below_sma,
     calc_macd,
@@ -22,7 +18,6 @@ from threshold.engine.technical import (
     calc_rsi_bullish_divergence,
     calc_rsi_value,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

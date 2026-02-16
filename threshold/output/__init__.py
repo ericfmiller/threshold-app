@@ -4,11 +4,11 @@ Re-exports key public functions for convenience.
 """
 
 from threshold.output.alerts import (
-    generate_scoring_alerts,
     build_scoring_email,
-    save_score_history,
-    load_previous_scores,
+    generate_scoring_alerts,
     load_grade_history,
+    load_previous_scores,
+    save_score_history,
 )
 from threshold.output.dashboard import generate_dashboard
 from threshold.output.narrative import generate_narrative

@@ -41,7 +41,6 @@ from threshold.engine.signals import (
 from threshold.engine.subscores import (
     calc_fundamental_quality,
     calc_momentum_quality,
-    calc_quant_deterioration,
     calc_revision_momentum,
     calc_technical_oversold,
     calc_valuation_context,
@@ -53,7 +52,6 @@ from threshold.engine.technical import (
     calc_reversal_signals,
     calc_rsi_value,
 )
-
 
 # ---------------------------------------------------------------------------
 # Type definitions
@@ -358,9 +356,8 @@ def score_ticker(
         if dd_classification in ("HEDGE", "DEFENSIVE") and sell_count == 1:
             if dd_downside_capture is not None:
                 board.add(make_defensive_hold(dd_classification, dd_downside_capture))
-        elif dd_classification == "AMPLIFIER" and sell_count >= 1:
-            if dd_downside_capture is not None:
-                board.add(make_amplifier_warning(dd_downside_capture))
+        elif dd_classification == "AMPLIFIER" and sell_count >= 1 and dd_downside_capture is not None:
+            board.add(make_amplifier_warning(dd_downside_capture))
 
     # Reversal buy signals
     if reversal_confirmed:

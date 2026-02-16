@@ -16,8 +16,8 @@ Public API::
 """
 
 from threshold.portfolio.accounts import (
-    Position,
     PortfolioSnapshot,
+    Position,
     aggregate_positions,
 )
 from threshold.portfolio.allocation import (

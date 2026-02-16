@@ -24,7 +24,6 @@ from typing import Any
 import plotly.io as pio
 
 from threshold.engine.pipeline import PipelineResult
-from threshold.engine.scorer import ScoringResult
 from threshold.output.charts import (
     COLORS,
     build_correlation_heatmap,

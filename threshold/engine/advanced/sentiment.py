@@ -106,23 +106,23 @@ class AlignedSentimentIndex:
         if len(common_idx) < self.min_observations:
             return None
 
-        X = proxies.loc[common_idx].values
+        x_data = proxies.loc[common_idx].values
         y = market_returns.loc[common_idx].values.reshape(-1, 1)
 
         # Remove NaN rows
-        mask = ~(np.isnan(X).any(axis=1) | np.isnan(y.ravel()))
-        X = X[mask]
+        mask = ~(np.isnan(x_data).any(axis=1) | np.isnan(y.ravel()))
+        x_data = x_data[mask]
         y = y[mask]
 
-        if len(X) < self.min_observations:
+        if len(x_data) < self.min_observations:
             return None
 
         # Fit PLS
         pls = PLSRegression(n_components=self.n_components)
-        pls.fit(X, y)
+        pls.fit(x_data, y)
 
         # Extract first latent factor (aligned sentiment)
-        sentiment = pls.transform(X).ravel()
+        sentiment = pls.transform(x_data).ravel()
         return sentiment
 
     def _compute_simple_sentiment(

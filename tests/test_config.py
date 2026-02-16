@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-import tempfile
-from pathlib import Path
 
 import pytest
 import yaml
@@ -17,7 +15,7 @@ from threshold.config.defaults import (
     SIGNAL_THRESHOLDS,
     VIX_REGIMES,
 )
-from threshold.config.loader import load_config, _expand_env_vars
+from threshold.config.loader import _expand_env_vars, load_config
 from threshold.config.schema import ThresholdConfig
 
 
@@ -78,7 +76,7 @@ class TestConfigLoading:
         assert config.scoring.weights.MQ == 35
 
     def test_weights_must_sum_to_100(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             ThresholdConfig(
                 scoring={"weights": {"MQ": 30, "FQ": 25, "TO": 20, "MR": 15, "VC": 5}}
             )

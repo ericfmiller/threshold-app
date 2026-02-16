@@ -29,9 +29,9 @@ def dashboard_cmd(ctx: click.Context, output_dir: str | None, no_open: bool) -> 
     an interactive Plotly dashboard organized by investment decision level.
     """
     from threshold.config.loader import load_config, resolve_path
-    from threshold.output.dashboard import generate_dashboard
-    from threshold.output.alerts import load_previous_scores
     from threshold.engine.pipeline import PipelineResult
+    from threshold.output.alerts import load_previous_scores
+    from threshold.output.dashboard import generate_dashboard
     from threshold.portfolio.correlation import CorrelationReport
 
     config = load_config(ctx.obj.get("config_path"))
@@ -52,10 +52,7 @@ def dashboard_cmd(ctx: click.Context, output_dir: str | None, no_open: bool) -> 
     )
 
     # Determine output directory
-    if output_dir is None:
-        out_dir = resolve_path(config.output.dashboard_dir)
-    else:
-        out_dir = output_dir
+    out_dir = resolve_path(config.output.dashboard_dir) if output_dir is None else output_dir
 
     filepath = generate_dashboard(
         result,
@@ -81,9 +78,9 @@ def narrative_cmd(ctx: click.Context, output_dir: str | None) -> None:
     a human-readable report organized by the Decision Hierarchy.
     """
     from threshold.config.loader import load_config, resolve_path
-    from threshold.output.narrative import generate_narrative
-    from threshold.output.alerts import load_previous_scores
     from threshold.engine.pipeline import PipelineResult
+    from threshold.output.alerts import load_previous_scores
+    from threshold.output.narrative import generate_narrative
     from threshold.portfolio.correlation import CorrelationReport
 
     config = load_config(ctx.obj.get("config_path"))
@@ -103,10 +100,7 @@ def narrative_cmd(ctx: click.Context, output_dir: str | None) -> None:
     )
 
     # Determine output directory
-    if output_dir is None:
-        out_dir = resolve_path(config.output.narrative_dir)
-    else:
-        out_dir = output_dir
+    out_dir = resolve_path(config.output.narrative_dir) if output_dir is None else output_dir
 
     filepath = generate_narrative(
         result,

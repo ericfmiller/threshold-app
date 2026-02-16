@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from threshold.config.defaults import (
+    ADVANCED_FACTOR_MOMENTUM,
+    ADVANCED_SENTIMENT,
+    ADVANCED_TREND_FOLLOWING,
+    AGGREGATOR,
     ALDEN_CATEGORIES,
     ALERT_THRESHOLDS,
     ALLOCATION_TARGETS,
@@ -26,15 +29,11 @@ from threshold.config.defaults import (
     MODIFIERS,
     MQ_WEIGHTS,
     MR_WEIGHTS,
-    PROFITABILITY_BLEND,
-    REVISION_MOMENTUM,
-    ADVANCED_FACTOR_MOMENTUM,
-    ADVANCED_SENTIMENT,
-    ADVANCED_TREND_FOLLOWING,
-    AGGREGATOR,
     PORTFOLIO_HRP,
     PORTFOLIO_INVERSE_VOL,
     PORTFOLIO_TAX,
+    PROFITABILITY_BLEND,
+    REVISION_MOMENTUM,
     RISK_CDAR,
     RISK_CVAR,
     RISK_EBP,
@@ -53,7 +52,6 @@ from threshold.config.defaults import (
     WAR_CHEST_VIX_TARGETS,
     YFINANCE_DEFAULTS,
 )
-
 
 # ---------------------------------------------------------------------------
 # Data Source Configs
@@ -104,7 +102,7 @@ class ScoringWeightsConfig(BaseModel):
     VC: int = DCS_WEIGHTS["VC"]
 
     @model_validator(mode="after")
-    def weights_sum_to_100(self) -> "ScoringWeightsConfig":
+    def weights_sum_to_100(self) -> ScoringWeightsConfig:
         total = self.MQ + self.FQ + self.TO + self.MR + self.VC
         if total != 100:
             raise ValueError(f"DCS weights must sum to 100, got {total}")
@@ -553,7 +551,7 @@ class ThresholdConfig(BaseModel):
         return data
 
     @model_validator(mode="after")
-    def set_alden_defaults(self) -> "ThresholdConfig":
+    def set_alden_defaults(self) -> ThresholdConfig:
         if not self.alden_categories:
             self.alden_categories = {
                 name: AldenCategoryConfig(

@@ -11,24 +11,18 @@ import pandas as pd
 import pytest
 
 from threshold.portfolio.accounts import (
-    Position,
     PortfolioSnapshot,
     aggregate_positions,
 )
 from threshold.portfolio.allocation import (
-    AldenAllocation,
-    AllocationReport,
-    WarChestStatus,
     compute_alden_allocation,
     compute_war_chest,
 )
 from threshold.portfolio.correlation import (
-    CorrelationReport,
     check_concentration_risk,
     compute_correlation_report,
 )
 from threshold.portfolio.ledger import PortfolioLedger, PortfolioValues
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -300,7 +294,6 @@ class TestCorrelation:
     def test_high_corr_pairs(self, correlated_returns):
         """SPY/QQQ should be flagged as highly correlated."""
         report = compute_correlation_report(correlated_returns, corr_threshold=0.70)
-        pair_tickers = [(a, b) for a, b, _ in report.high_corr_pairs]
         # SPY/QQQ have high market beta similarity
         assert len(report.high_corr_pairs) >= 1
 
@@ -571,19 +564,9 @@ class TestPackageImports:
     def test_portfolio_imports(self):
         """Portfolio package should export all public API."""
         from threshold.portfolio import (
-            AldenAllocation,
-            AllocationReport,
-            CorrelationReport,
             PortfolioLedger,
-            PortfolioSnapshot,
-            PortfolioValues,
             Position,
-            WarChestStatus,
-            aggregate_positions,
-            check_concentration_risk,
-            compute_alden_allocation,
             compute_correlation_report,
-            compute_war_chest,
         )
         assert Position is not None
         assert PortfolioLedger is not None
@@ -603,12 +586,8 @@ class TestPackageImports:
     def test_alerts_imports(self):
         """Alerts module should be importable."""
         from threshold.output.alerts import (
-            build_scoring_email,
             generate_scoring_alerts,
-            load_grade_history,
-            load_previous_scores,
             save_score_history,
-            send_email,
         )
         assert generate_scoring_alerts is not None
         assert save_score_history is not None

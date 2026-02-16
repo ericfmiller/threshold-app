@@ -7,9 +7,8 @@ import pandas as pd
 import pytest
 
 from threshold.engine.context import ScoringContext
-from threshold.engine.scorer import ScoringResult, score_ticker
+from threshold.engine.scorer import score_ticker
 from threshold.engine.signals import SignalBoard
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

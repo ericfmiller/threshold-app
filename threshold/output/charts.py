@@ -18,7 +18,6 @@ from __future__ import annotations
 from typing import Any
 
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from threshold.engine.scorer import ScoringResult
 
@@ -256,7 +255,7 @@ def build_drawdown_defense_bars(
     fig = go.Figure(go.Bar(
         x=list(counts.keys()),
         y=list(counts.values()),
-        marker_color=[class_colors.get(c, COLORS["muted"]) for c in counts.keys()],
+        marker_color=[class_colors.get(c, COLORS["muted"]) for c in counts],
         text=list(counts.values()),
         textposition="auto",
         hovertemplate="<b>%{x}</b><br>Count: %{y}<extra></extra>",

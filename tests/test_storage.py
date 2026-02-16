@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from threshold.storage.database import Database
 from threshold.storage.migrations import ensure_schema
 from threshold.storage.queries import (

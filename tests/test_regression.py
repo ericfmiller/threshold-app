@@ -11,18 +11,20 @@ narrative/dashboard output, and score persistence round-trips.
 from __future__ import annotations
 
 import json
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from threshold.config.schema import ThresholdConfig
 from threshold.engine.context import ScoringContext
 from threshold.engine.pipeline import PipelineResult
-from threshold.engine.scorer import ScoringResult, score_ticker
-from threshold.output.alerts import generate_scoring_alerts, save_score_history, load_previous_scores
+from threshold.engine.scorer import score_ticker
+from threshold.output.alerts import (
+    generate_scoring_alerts,
+    load_previous_scores,
+    save_score_history,
+)
 from threshold.output.narrative import generate_narrative
-from threshold.portfolio.correlation import CorrelationReport
-
 
 # ---------------------------------------------------------------------------
 # Deterministic price generators
@@ -378,10 +380,8 @@ class TestNarrativeRegression:
                 f"{ticker} (DCS={scores[ticker]['dcs']:.1f}) not found in narrative"
             )
         # Weak tickers (DCS < 50) won't appear unless they have sell flags
-        weak_tickers = {t for t, s in scores.items() if s["dcs"] < 50}
-        for ticker in weak_tickers:
-            # These may or may not appear — just verify no crash
-            pass
+        # Just verify computing the set doesn't crash
+        weak_tickers = {t for t, s in scores.items() if s["dcs"] < 50}  # noqa: F841
 
 
 # ---------------------------------------------------------------------------

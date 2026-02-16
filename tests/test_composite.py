@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from threshold.engine.composite import (
     apply_drawdown_modifier,
     apply_falling_knife_filter,
@@ -13,7 +11,6 @@ from threshold.engine.composite import (
     classify_vix,
     compose_dcs,
 )
-
 
 # ---------------------------------------------------------------------------
 # compose_dcs
