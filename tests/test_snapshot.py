@@ -62,32 +62,32 @@ class TestGenerateSnapshot:
     def test_with_tsp(self):
         """Should include TSP value in total."""
         db, config, _ = self._make_mock_db_and_config()
-        config.tsp.value = 226000
+        config.tsp.value = 200000
 
         with patch("threshold.data.position_import.load_positions_from_db", return_value=[]):
             result = generate_snapshot(db, config, "2026-02-15")
 
-        assert result["tsp_value"] == 226000.0
-        assert result["total_portfolio"] == 226000.0
+        assert result["tsp_value"] == 200000.0
+        assert result["total_portfolio"] == 200000.0
 
     def test_with_btc(self):
         """Should include BTC value when configured."""
         db, config, _ = self._make_mock_db_and_config()
         btc_holding = MagicMock()
         btc_holding.symbol = "BTC-USD"
-        btc_holding.quantity = 3.5
+        btc_holding.quantity = 2.0
         config.separate_holdings = [btc_holding]
 
         with (
             patch("threshold.data.position_import.load_positions_from_db", return_value=[]),
-            patch("threshold.data.snapshot._fetch_btc_price", return_value=65000.0),
+            patch("threshold.data.snapshot._fetch_btc_price", return_value=50000.0),
         ):
             result = generate_snapshot(db, config, "2026-02-15")
 
-        assert result["btc_quantity"] == 3.5
-        assert result["btc_price"] == 65000.0
-        assert result["btc_value"] == 227500.0
-        assert result["total_portfolio"] == 227500.0
+        assert result["btc_quantity"] == 2.0
+        assert result["btc_price"] == 50000.0
+        assert result["btc_value"] == 100000.0
+        assert result["total_portfolio"] == 100000.0
 
 
 # ---------------------------------------------------------------------------
@@ -102,10 +102,10 @@ class TestSnapshotPersistence:
 
         snapshot = {
             "snapshot_date": "2026-02-15",
-            "total_portfolio": 857000.0,
-            "fidelity_total": 405000.0,
-            "tsp_value": 226000.0,
-            "btc_value": 226000.0,
+            "total_portfolio": 750000.0,
+            "fidelity_total": 350000.0,
+            "tsp_value": 200000.0,
+            "btc_value": 200000.0,
         }
 
         save_snapshot(mock_db, snapshot)
@@ -122,11 +122,11 @@ class TestSnapshotPersistence:
 
     def test_load_parses_json(self):
         """Should parse stored JSON data."""
-        snapshot_data = {"snapshot_date": "2026-02-15", "total_portfolio": 857000.0}
+        snapshot_data = {"snapshot_date": "2026-02-15", "total_portfolio": 750000.0}
         mock_row = {"data_json": json.dumps(snapshot_data)}
         mock_db = MagicMock()
         mock_db.fetchone.return_value = mock_row
 
         result = load_latest_snapshot(mock_db)
         assert result is not None
-        assert result["total_portfolio"] == 857000.0
+        assert result["total_portfolio"] == 750000.0

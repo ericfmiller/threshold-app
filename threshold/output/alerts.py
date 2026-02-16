@@ -278,6 +278,24 @@ def save_score_history(
             if sig_key in result:
                 ticker_entry[sig_key] = result[sig_key]
 
+        # Include falling knife cap data
+        if "falling_knife_cap" in result:
+            ticker_entry["falling_knife_cap"] = result["falling_knife_cap"]
+
+        # Include revision momentum data
+        if "revision_momentum" in result:
+            ticker_entry["revision_momentum"] = result["revision_momentum"]
+
+        # Include trend score
+        if "trend_score" in result:
+            ticker_entry["trend_score"] = result["trend_score"]
+
+        # Include holdings/watchlist tags
+        if "is_holding" in result:
+            ticker_entry["is_holding"] = result["is_holding"]
+        if "is_watchlist" in result:
+            ticker_entry["is_watchlist"] = result["is_watchlist"]
+
         output["scores"][symbol] = ticker_entry
 
     # Write

@@ -79,6 +79,7 @@ def _dark_layout(**overrides: Any) -> dict[str, Any]:
 def build_dcs_scatter(
     scores: dict[str, ScoringResult],
     ticker_sectors: dict[str, str] | None = None,
+    held_symbols: set[str] | None = None,
     title: str = "DCS vs RSI — Portfolio Holdings",
 ) -> go.Figure:
     """Build DCS vs RSI scatter plot with signal zones and reversal markers.
@@ -89,67 +90,74 @@ def build_dcs_scatter(
     triangle=RSI DIVERGENCE.
     """
     sectors = ticker_sectors or {}
+    held = held_symbols or set()
     fig = go.Figure()
 
-    # Collect data by sector for legend grouping
-    sector_data: dict[str, list[dict]] = {}
-    for ticker, result in scores.items():
-        dcs = result.get("dcs", 0)
-        technicals = result.get("technicals", {})
-        rsi = technicals.get("rsi_14", 50)
-        sector = sectors.get(ticker, "Other")
+    # Collect data split by holdings vs watchlist
+    for group_name, group_filter, base_color, opacity in [
+        ("Holdings", True, COLORS["blue"], 1.0),
+        ("Watchlist", False, COLORS["teal"], 0.6),
+    ]:
+        group_points: list[dict] = []
+        for ticker, result in scores.items():
+            is_held = ticker in held
+            if (group_filter and not is_held) or (not group_filter and is_held):
+                continue
+            dcs = result.get("dcs", 0)
+            technicals = result.get("technicals", {})
+            rsi = technicals.get("rsi_14", 50)
+            sector = sectors.get(ticker, "Other")
+            group_points.append({
+                "ticker": ticker,
+                "dcs": dcs,
+                "rsi": rsi,
+                "sector": sector,
+                "signal": result.get("dcs_signal", ""),
+                "reversal": result.get("reversal_confirmed", False),
+                "bottom": result.get("bottom_turning", False),
+                "divergence": result.get("rsi_bullish_divergence", False),
+            })
 
-        point = {
-            "ticker": ticker,
-            "dcs": dcs,
-            "rsi": rsi,
-            "signal": result.get("dcs_signal", ""),
-            "reversal": result.get("reversal_confirmed", False),
-            "bottom": result.get("bottom_turning", False),
-            "divergence": result.get("rsi_bullish_divergence", False),
-        }
-        sector_data.setdefault(sector, []).append(point)
+        if not group_points:
+            continue
 
-    # Plot each sector
-    for sector, points in sorted(sector_data.items()):
-        color = SECTOR_COLORS.get(sector, COLORS["muted"])
+        # Separate by reversal signals
+        regular = [p for p in group_points if not p["reversal"] and not p["bottom"]]
+        reversals = [p for p in group_points if p["reversal"]]
+        bottoms = [p for p in group_points if p["bottom"] and not p["reversal"]]
+        divergences = [p for p in group_points if p["divergence"] and not p["reversal"] and not p["bottom"]]
 
-        # Separate regular and reversal points
-        regular = [p for p in points if not p["reversal"] and not p["bottom"]]
-        reversals = [p for p in points if p["reversal"]]
-        bottoms = [p for p in points if p["bottom"] and not p["reversal"]]
-        divergences = [p for p in points if p["divergence"] and not p["reversal"] and not p["bottom"]]
-
-        for group, marker_sym, name_suffix in [
-            (regular, "circle", ""),
+        for subgroup, marker_sym, name_suffix in [
+            (regular, "circle" if group_filter else "circle-open", ""),
             (reversals, "star", " [REV]"),
             (bottoms, "diamond", " [BTM]"),
             (divergences, "triangle-up", " [DIV]"),
         ]:
-            if not group:
+            if not subgroup:
                 continue
             fig.add_trace(go.Scatter(
-                x=[p["rsi"] for p in group],
-                y=[p["dcs"] for p in group],
+                x=[p["rsi"] for p in subgroup],
+                y=[p["dcs"] for p in subgroup],
                 mode="markers+text",
-                text=[p["ticker"] for p in group],
+                text=[p["ticker"] for p in subgroup],
                 textposition="top center",
                 textfont={"size": 9, "color": COLORS["text"]},
                 marker={
-                    "size": 10,
-                    "color": color,
+                    "size": 10 if group_filter else 8,
+                    "color": base_color,
                     "symbol": marker_sym,
+                    "opacity": opacity,
                     "line": {"width": 1, "color": COLORS["text"]},
                 },
-                name=f"{sector}{name_suffix}",
+                name=f"{group_name}{name_suffix}",
                 hovertemplate=(
                     "<b>%{text}</b><br>"
                     "DCS: %{y:.1f}<br>"
                     "RSI: %{x:.1f}<br>"
-                    f"Sector: {sector}<br>"
+                    f"Type: {group_name}<br>"
                     "<extra></extra>"
                 ),
-                legendgroup=sector,
+                legendgroup=group_name,
                 showlegend=bool(not name_suffix),
             ))
 
@@ -235,9 +243,14 @@ def build_war_chest_gauge(
 
 def build_drawdown_defense_bars(
     classifications: dict[str, str],
+    ticker_values: dict[str, float] | None = None,
     title: str = "Portfolio Defensive Composition",
 ) -> go.Figure:
-    """Build grouped bars showing count of tickers per defense class."""
+    """Build grouped bars showing count % and dollar-weighted % per defense class.
+
+    When ticker_values is provided, shows side-by-side bars:
+    count-based % and dollar-weighted %.
+    """
     class_order = ["HEDGE", "DEFENSIVE", "MODERATE", "CYCLICAL", "AMPLIFIER"]
     class_colors = {
         "HEDGE": COLORS["blue"],
@@ -248,27 +261,53 @@ def build_drawdown_defense_bars(
     }
 
     counts = {c: 0 for c in class_order}
-    for _, cls in classifications.items():
+    dollar_vals = {c: 0.0 for c in class_order}
+    values = ticker_values or {}
+
+    for ticker, cls in classifications.items():
         if cls in counts:
             counts[cls] += 1
+            dollar_vals[cls] += values.get(ticker, 0)
 
-    fig = go.Figure(go.Bar(
-        x=list(counts.keys()),
-        y=list(counts.values()),
-        marker_color=[class_colors.get(c, COLORS["muted"]) for c in counts],
-        text=list(counts.values()),
+    total_count = sum(counts.values())
+    total_dollars = sum(dollar_vals.values())
+
+    fig = go.Figure()
+
+    # Count-based percentages
+    count_pcts = [counts[c] / total_count * 100 if total_count > 0 else 0 for c in class_order]
+    fig.add_trace(go.Bar(
+        x=class_order,
+        y=count_pcts,
+        name="By Count",
+        marker_color=[class_colors.get(c, COLORS["muted"]) for c in class_order],
+        text=[f"{v:.0f}%" for v in count_pcts],
         textposition="auto",
-        hovertemplate="<b>%{x}</b><br>Count: %{y}<extra></extra>",
+        hovertemplate="<b>%{x}</b><br>Count: %{y:.1f}%<extra></extra>",
     ))
 
-    total = sum(counts.values())
-    offense_pct = (counts.get("CYCLICAL", 0) + counts.get("AMPLIFIER", 0)) / total * 100 if total > 0 else 0
+    # Dollar-weighted percentages (if data available)
+    if total_dollars > 0:
+        dollar_pcts = [dollar_vals[c] / total_dollars * 100 for c in class_order]
+        fig.add_trace(go.Bar(
+            x=class_order,
+            y=dollar_pcts,
+            name="By $ Value",
+            marker_color=[class_colors.get(c, COLORS["muted"]) for c in class_order],
+            marker_pattern_shape="/",
+            text=[f"{v:.0f}%" for v in dollar_pcts],
+            textposition="auto",
+            opacity=0.7,
+            hovertemplate="<b>%{x}</b><br>Dollar: %{y:.1f}%<extra></extra>",
+        ))
+
+    offense_pct = (counts.get("CYCLICAL", 0) + counts.get("AMPLIFIER", 0)) / total_count * 100 if total_count > 0 else 0
 
     fig.update_layout(**_dark_layout(
-        title=f"{title} ({offense_pct:.0f}% Offense)",
-        yaxis_title="Ticker Count",
+        title=f"{title} ({offense_pct:.0f}% Offense by Count)",
+        yaxis_title="Percentage",
         height=350,
-        showlegend=False,
+        barmode="group",
     ))
 
     return fig

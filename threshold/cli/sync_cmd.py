@@ -90,18 +90,26 @@ def _step_onboard(db, config, dry_run: bool) -> None:  # noqa: ANN001
 
 
 def _step_import_positions(db, config, dry_run: bool) -> None:  # noqa: ANN001
-    """Step 2: Import positions from SA export Holdings sheets."""
+    """Step 2: Import positions from SA export Holdings sheets + synthetic."""
     click.echo("\n[2/5] Importing positions...")
 
     try:
-        from threshold.data.position_import import import_all_positions
+        from threshold.data.position_import import (
+            import_all_positions,
+            import_synthetic_positions,
+        )
 
         import_result = import_all_positions(db, config)
-        total = import_result.total_imported
+        total = import_result.positions_imported
         if total > 0:
             click.echo(f"  Imported {total} position(s) across {import_result.accounts_processed} account(s)")
         else:
-            click.echo("  No positions to import (no exports configured or found)")
+            click.echo("  No SA export positions to import")
+
+        # Import TSP + BTC synthetic positions
+        synthetic = import_synthetic_positions(db, config)
+        if synthetic > 0:
+            click.echo(f"  Imported {synthetic} synthetic position(s) (TSP/BTC)")
     except Exception as e:
         click.echo(f"  Position import skipped: {e}")
 

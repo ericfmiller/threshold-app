@@ -426,6 +426,14 @@ class AccountConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# TSP Config
+# ---------------------------------------------------------------------------
+
+class TSPConfig(BaseModel):
+    total_value: float = 0.0
+
+
+# ---------------------------------------------------------------------------
 # Separate Holdings Config
 # ---------------------------------------------------------------------------
 
@@ -533,6 +541,7 @@ class ThresholdConfig(BaseModel):
     allocation: AllocationConfig = Field(default_factory=AllocationConfig)
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
     accounts: list[AccountConfig] = Field(default_factory=list)
+    tsp: TSPConfig = Field(default_factory=TSPConfig)
     separate_holdings: list[SeparateHoldingConfig] = Field(default_factory=list)
     alerts: AlertsConfig = Field(default_factory=AlertsConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)

@@ -26,23 +26,29 @@ Thumbs.db
 
 # Environment & secrets
 .env
+.env.*
 *.pem
 *.key
+*.secret
 
-# Threshold data (user-specific, never committed)
+# =========================================================================
+# ASSET DATA — ALL LOCAL ONLY, NEVER COMMITTED
+# =========================================================================
+# This is a firm rule: all portfolio data, holdings, watchlists, scores,
+# snapshots, and financial exports stay local. Each user uploads their own.
+# =========================================================================
+
+# Database files (contain all user portfolio data)
 *.db
+*.db-wal
+*.db-shm
+
+# Threshold user data directory
 ~/.threshold/
 
-# Personal financial data — NEVER commit holdings or export files
-data/exports/
-data/backtest/
-data/z-files/
-score_history/
-workbooks/
-portfolios/
-
-# User portfolio & watchlist upload folders (contain personal holdings data)
-# The folders themselves are tracked (via .gitkeep) so they exist after clone
+# User portfolio & watchlist upload folders
+# The folders themselves are tracked (via .gitkeep + README.txt) so they
+# exist after clone, but ALL data files inside are excluded.
 Poftfolio Files/*
 !Poftfolio Files/.gitkeep
 !Poftfolio Files/README.txt
@@ -50,8 +56,33 @@ Watchlist Files/*
 !Watchlist Files/.gitkeep
 !Watchlist Files/README.txt
 
-# SA API data
+# Seeking Alpha export files (personal holdings data)
+*.xlsx
+*.xls
+
+# Score history, snapshots, and generated reports
+score_history/
+**/score_history/
+weekly_scores_*.json
+portfolio_snapshot_*.json
 sa_ratings_*.json
+drawdown_defense_*.json
+
+# Generated output files
+*.html
+narratives/
+dashboards/
+
+# Personal financial data directories
+data/exports/
+data/backtest/
+data/z-files/
+workbooks/
+portfolios/
+
+# Parquet and CSV data files
+*.parquet
+*.csv
 
 # Logs
 *.log
@@ -65,5 +96,9 @@ htmlcov/
 .ruff_cache/
 .hypothesis/
 
-# CLAUDE.md (personal config)
+# CLAUDE.md and MEMORY.md (personal instructions, never committed)
 CLAUDE.md
+MEMORY.md
+
+# Claude plans and session files
+.claude/

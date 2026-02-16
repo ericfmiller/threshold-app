@@ -23,6 +23,7 @@ data_sources:
     enabled: true
     api_url: "https://seekingalpha.com/api/v3/symbols/{symbol}/ratings"
     export_dir: ""              # Directory containing SA Excel exports
+    z_file_dir: ""              # Directory containing watchlist Z-files
     stale_threshold_days: 2     # Warn when SA data older than this
 
   fred:
@@ -77,6 +78,12 @@ accounts:
   #   institution: Fidelity
   #   tax_treatment: taxable
   #   sa_export_prefix: "Fidelity - Individual - Brokerage"
+
+# --- TSP (Thrift Savings Plan) ---
+# Federal employees: enter your total TSP balance.
+# Fund allocations go in the tsp account config above.
+tsp:
+  total_value: 0
 
 # --- Separate Holdings ---
 # Assets held outside your main brokerage (e.g., crypto in cold storage)

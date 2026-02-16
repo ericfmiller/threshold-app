@@ -169,7 +169,7 @@ def import_positions_from_export(
         if get_ticker(db, "CASH") is None:
             upsert_ticker(
                 db, symbol="CASH", name="Cash & Cash Equivalents",
-                type="fund", sector="Cash", is_cash=True,
+                type="fund", sector="Cash/War Chest", is_cash=True,
             )
             db.conn.commit()
             logger.info("Auto-registered CASH ticker")
@@ -272,6 +272,172 @@ def import_all_positions(
         result.accounts_processed,
     )
     return result
+
+
+def import_synthetic_positions(
+    db: Any,
+    config: Any,
+    snapshot_date: str | None = None,
+) -> int:
+    """Import synthetic positions for TSP (via ETF proxies) and separate holdings (BTC).
+
+    TSP funds are represented as ETF proxy positions (e.g., VOO for C Fund).
+    BTC is imported using the quantity from config and live price from yfinance.
+
+    Parameters
+    ----------
+    db : Database
+        Open database connection.
+    config : ThresholdConfig
+        Configuration with tsp, accounts, and separate_holdings.
+    snapshot_date : str | None
+        Date for snapshot. If None, uses today.
+
+    Returns
+    -------
+    int
+        Number of synthetic positions imported.
+    """
+    from threshold.storage.queries import get_ticker, upsert_ticker
+
+    if snapshot_date is None:
+        snapshot_date = date.today().isoformat()
+
+    count = 0
+
+    # --- TSP Fund positions (via ETF proxies) ---
+    tsp_total = 0.0
+    if hasattr(config, "tsp") and config.tsp:
+        tsp_total = float(getattr(config.tsp, "total_value", 0) or 0)
+
+    if tsp_total > 0:
+        # Find the TSP account
+        tsp_account = None
+        for acct in getattr(config, "accounts", []):
+            if getattr(acct, "type", "") == "tsp":
+                tsp_account = acct
+                break
+
+        if tsp_account:
+            # Ensure account exists in DB
+            existing = db.fetchone(
+                "SELECT id FROM accounts WHERE id = ?", (tsp_account.id,)
+            )
+            if not existing:
+                db.execute(
+                    """INSERT INTO accounts (id, name, type, institution, tax_treatment)
+                    VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        tsp_account.id,
+                        tsp_account.name,
+                        tsp_account.type,
+                        getattr(tsp_account, "institution", "TSP"),
+                        getattr(tsp_account, "tax_treatment", "tax_deferred"),
+                    ),
+                )
+
+            for fund in getattr(tsp_account, "funds", []):
+                proxy_sym = fund.etf_proxy
+                alloc = fund.allocation
+                fund_value = round(tsp_total * alloc, 2)
+
+                # Ensure ticker exists
+                if get_ticker(db, proxy_sym) is None:
+                    upsert_ticker(db, symbol=proxy_sym, name=fund.name, type="etf")
+                    logger.info("Auto-registered TSP proxy ticker %s", proxy_sym)
+
+                db.execute(
+                    """INSERT INTO positions (account_id, symbol, shares, cost_basis,
+                        market_value, weight, snapshot_date, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'synthetic_tsp')
+                    ON CONFLICT(account_id, symbol, snapshot_date) DO UPDATE SET
+                        shares=excluded.shares, cost_basis=excluded.cost_basis,
+                        market_value=excluded.market_value, weight=excluded.weight,
+                        source=excluded.source""",
+                    (tsp_account.id, proxy_sym, 0, 0, fund_value, alloc, snapshot_date),
+                )
+                count += 1
+                logger.info(
+                    "  TSP: %s (%.0f%%) = $%.2f via %s",
+                    fund.name, alloc * 100, fund_value, proxy_sym,
+                )
+
+    # --- Separate holdings (BTC) ---
+    for holding in getattr(config, "separate_holdings", []):
+        symbol = getattr(holding, "symbol", "")
+        quantity = float(getattr(holding, "quantity", 0) or 0)
+        if not symbol or quantity <= 0:
+            continue
+
+        # Find the btc_separate account
+        sep_account = None
+        for acct in getattr(config, "accounts", []):
+            if getattr(acct, "type", "") == "separate":
+                sep_account = acct
+                break
+
+        if not sep_account:
+            logger.debug("No 'separate' type account configured for %s", symbol)
+            continue
+
+        # Ensure account exists in DB
+        existing = db.fetchone(
+            "SELECT id FROM accounts WHERE id = ?", (sep_account.id,)
+        )
+        if not existing:
+            db.execute(
+                """INSERT INTO accounts (id, name, type, institution, tax_treatment)
+                VALUES (?, ?, ?, ?, ?)""",
+                (
+                    sep_account.id,
+                    sep_account.name,
+                    sep_account.type,
+                    getattr(sep_account, "institution", "Self-Custody"),
+                    getattr(sep_account, "tax_treatment", "taxable"),
+                ),
+            )
+
+        # Ensure ticker exists
+        if get_ticker(db, symbol) is None:
+            upsert_ticker(db, symbol=symbol, name=symbol, type="cryptocurrency",
+                          is_crypto_exempt=True)
+            logger.info("Auto-registered separate holding ticker %s", symbol)
+
+        # Get price via yfinance
+        price = 0.0
+        try:
+            import yfinance as yf
+
+            ticker_obj = yf.Ticker(symbol)
+            hist = ticker_obj.history(period="1d")
+            if hist is not None and not hist.empty:
+                price = float(hist["Close"].iloc[-1])
+        except Exception as e:
+            logger.debug("Price fetch for %s failed: %s", symbol, e)
+
+        market_value = round(quantity * price, 2) if price > 0 else 0.0
+
+        db.execute(
+            """INSERT INTO positions (account_id, symbol, shares, cost_basis,
+                market_value, weight, snapshot_date, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'synthetic_separate')
+            ON CONFLICT(account_id, symbol, snapshot_date) DO UPDATE SET
+                shares=excluded.shares, cost_basis=excluded.cost_basis,
+                market_value=excluded.market_value, weight=excluded.weight,
+                source=excluded.source""",
+            (sep_account.id, symbol, quantity, 0, market_value, 1.0, snapshot_date),
+        )
+        count += 1
+        logger.info(
+            "  Separate: %s × %.4f @ $%.2f = $%.2f",
+            symbol, quantity, price, market_value,
+        )
+
+    if count > 0:
+        db.conn.commit()
+        logger.info("Imported %d synthetic positions (TSP + separate)", count)
+
+    return count
 
 
 def load_positions_from_db(

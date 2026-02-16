@@ -41,6 +41,7 @@ from threshold.portfolio.correlation import (
 from threshold.storage.database import Database
 from threshold.storage.queries import (
     get_drawdown_classifications,
+    get_latest_positions,
     get_latest_scores,
     insert_score,
     insert_scoring_run,
@@ -109,6 +110,8 @@ class PipelineResult:
     """symbol → ExemptionResult for exempt tickers."""
     active_grace_periods: list[dict[str, Any]] = field(default_factory=list)
     """Active grace periods with ticker, tier, days remaining, reason."""
+    held_symbols: set[str] = field(default_factory=set)
+    """Symbols that are current portfolio holdings (from positions table)."""
 
     @property
     def n_scored(self) -> int:
@@ -134,42 +137,63 @@ def _load_sa_data_from_exports(
     config: ThresholdConfig,
     tracker: RunTracker,
 ) -> dict[str, dict[str, Any]]:
-    """Attempt to load SA ratings from the latest export files.
+    """Attempt to load SA ratings from portfolio exports AND Z-files (watchlist).
+
+    Portfolio exports take priority — Z-file data only fills in tickers
+    not already present from portfolio exports.
 
     Falls back to empty dict if exports aren't configured or available.
     """
     try:
+        from pathlib import Path
+
         from threshold.data.adapters.sa_export_reader import (
             extract_sa_data_from_ratings,
             read_all_sa_exports,
         )
 
-        export_dir = config.data_sources.seeking_alpha.export_dir
-        if not export_dir:
-            tracker.data_sources["sa_exports"] = "skipped"
-            return {}
-
-        from pathlib import Path
-
-        if not Path(export_dir).is_dir():
-            tracker.data_sources["sa_exports"] = "skipped"
-            return {}
-
-        all_exports = read_all_sa_exports(export_dir)
         sa_data: dict[str, dict[str, Any]] = {}
+        portfolio_count = 0
+        zfile_count = 0
 
-        for _filename, sheets in all_exports.items():
-            ratings_df = sheets.get("Ratings")
-            if ratings_df is not None:
-                file_data = extract_sa_data_from_ratings(ratings_df)
-                # Merge — later files overwrite earlier for same ticker
-                sa_data.update(file_data)
+        # --- 1. Load from portfolio export directory ---
+        export_dir = config.data_sources.seeking_alpha.export_dir
+        if export_dir and Path(export_dir).is_dir():
+            all_exports = read_all_sa_exports(export_dir)
+            for _filename, sheets in all_exports.items():
+                ratings_df = sheets.get("Ratings")
+                if ratings_df is not None:
+                    file_data = extract_sa_data_from_ratings(ratings_df)
+                    sa_data.update(file_data)
+            portfolio_count = len(sa_data)
+
+        # --- 2. Load from Z-file (watchlist) directory ---
+        z_file_dir = config.data_sources.seeking_alpha.z_file_dir
+        if z_file_dir and Path(z_file_dir).is_dir():
+            z_exports = read_all_sa_exports(z_file_dir)
+            for _filename, sheets in z_exports.items():
+                ratings_df = sheets.get("Ratings")
+                if ratings_df is not None:
+                    file_data = extract_sa_data_from_ratings(ratings_df)
+                    # Only add tickers NOT already present from portfolio exports
+                    for ticker, data in file_data.items():
+                        if ticker not in sa_data:
+                            sa_data[ticker] = data
+                            zfile_count += 1
 
         if sa_data:
             tracker.data_sources["sa_exports"] = "ok"
-            logger.info("  Auto-loaded SA data for %d tickers from exports", len(sa_data))
+            logger.info(
+                "  Auto-loaded SA data for %d tickers (%d portfolio, %d watchlist Z-files)",
+                len(sa_data),
+                portfolio_count,
+                zfile_count,
+            )
         else:
-            tracker.data_sources["sa_exports"] = "empty"
+            if not export_dir and not z_file_dir:
+                tracker.data_sources["sa_exports"] = "skipped"
+            else:
+                tracker.data_sources["sa_exports"] = "empty"
 
         return sa_data
 
@@ -370,20 +394,21 @@ def run_scoring_pipeline(
     if not sa_ratings:
         sa_ratings = _load_sa_data_from_exports(config, tracker)
 
-    # Exempt tickers (crypto, war chest, etc.)
-    exempt_tickers = {
+    # Exempt tickers (crypto, war chest, etc.) — still scored for tracking,
+    # but sell signals suppressed downstream.
+    exempt_ticker_symbols = {
         t["symbol"] for t in all_tickers_db
         if t.get("is_crypto_exempt") or t.get("is_cash")
     }
-    tickers_to_score = [
-        t for t in ticker_symbols if t not in exempt_tickers
-    ]
+    # Score ALL tickers (including exempt) so DCS appears in reports.
+    # Cash-only tickers (no price data) will naturally be skipped.
+    tickers_to_score = list(ticker_symbols)
 
     logger.info(
-        "  %d tickers (%d to score, %d exempt)",
+        "  %d tickers (%d to score, %d exempt but still tracked)",
         len(ticker_symbols),
         len(tickers_to_score),
-        len(exempt_tickers),
+        len(exempt_ticker_symbols),
     )
 
     # Load exemptions and grace periods early — these don't depend on prices
@@ -391,13 +416,31 @@ def run_scoring_pipeline(
     result.exempt_tickers = get_exempt_tickers(all_tickers_db, config)
     result.active_grace_periods = list_active_grace_periods(db)
 
+    # Compute held_symbols from positions table for holdings/watchlist tagging
+    positions = get_latest_positions(db)
+    result.held_symbols = {
+        pos["symbol"] for pos in positions
+        if pos.get("market_value", 0) > 0
+    }
+
     # ------------------------------------------------------------------
     # Step 2: Fetch price data
     # ------------------------------------------------------------------
     logger.info("[2/6] Fetching price data...")
 
-    # Build download list: scored tickers + SPY + VIX
-    download_tickers = list(set(tickers_to_score + ["SPY", "^VIX"]))
+    # Build yfinance symbol mapping: portfolio symbol -> yfinance symbol
+    # (e.g. BRK.B -> BRK-B). yfinance uses dashes, SA exports use dots.
+    yf_map: dict[str, str] = {}  # portfolio_sym -> yf_sym
+    yf_reverse: dict[str, str] = {}  # yf_sym -> portfolio_sym
+    for sym in tickers_to_score:
+        meta = ticker_meta.get(sym, {})
+        yf_sym = meta.get("yf_symbol") or sym.replace(".", "-")
+        yf_map[sym] = yf_sym
+        yf_reverse[yf_sym] = sym
+
+    download_tickers = list(set(
+        [yf_map.get(t, t) for t in tickers_to_score] + ["SPY", "^VIX"]
+    ))
     period = config.data_sources.yfinance.price_period
 
     batch_data = _fetch_prices_yfinance(download_tickers, period=period)
@@ -459,7 +502,9 @@ def run_scoring_pipeline(
     for ticker in tickers_to_score:
         try:
             sa = sa_ratings.get(ticker, {})
-            close = _extract_close(batch_data, ticker)
+            # Use yfinance symbol for price extraction (e.g. BRK-B not BRK.B)
+            yf_sym = yf_map.get(ticker, ticker)
+            close = _extract_close(batch_data, yf_sym)
 
             if close is None or len(close) < 50:
                 tracker.tickers_skipped += 1
@@ -478,6 +523,9 @@ def run_scoring_pipeline(
             )
 
             if scoring_result is not None:
+                # Tag holdings vs watchlist
+                scoring_result["is_holding"] = ticker in result.held_symbols
+                scoring_result["is_watchlist"] = ticker not in result.held_symbols
                 scored_results[ticker] = scoring_result
                 tracker.tickers_scored += 1
             else:

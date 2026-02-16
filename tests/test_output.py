@@ -175,9 +175,18 @@ class TestDCSScatter:
         from threshold.output.charts import build_dcs_scatter
         fig = build_dcs_scatter(sample_scores, ticker_sectors=sample_ticker_sectors)
         assert fig is not None
-        # Should have traces grouped by sector
-        sector_names = {t.name.split(" [")[0] for t in fig.data}
-        assert len(sector_names) >= 2
+        # Should have traces (Holdings/Watchlist split or sector-grouped)
+        assert len(fig.data) >= 1
+
+    def test_scatter_with_held_symbols(self, sample_scores, sample_ticker_sectors):
+        from threshold.output.charts import build_dcs_scatter
+        held = {"AAPL", "MSFT", "NVDA"}
+        fig = build_dcs_scatter(sample_scores, ticker_sectors=sample_ticker_sectors, held_symbols=held)
+        assert fig is not None
+        trace_names = {t.name for t in fig.data if hasattr(t, "name") and t.name}
+        # Should have both Holdings and Watchlist traces
+        assert any("Holdings" in n for n in trace_names)
+        assert any("Watchlist" in n for n in trace_names)
 
     def test_scatter_empty_scores(self):
         from threshold.output.charts import build_dcs_scatter
@@ -217,14 +226,27 @@ class TestDrawdownDefenseBars:
         from threshold.output.charts import build_drawdown_defense_bars
         fig = build_drawdown_defense_bars(sample_drawdown_classifications)
         assert fig is not None
-        assert len(fig.data) == 1  # One bar trace
+        assert len(fig.data) >= 1  # At least one bar trace (count; optionally dollar-weighted)
 
     def test_bars_counts(self, sample_drawdown_classifications):
         from threshold.output.charts import build_drawdown_defense_bars
         fig = build_drawdown_defense_bars(sample_drawdown_classifications)
         y_values = list(fig.data[0].y)
-        # Should have counts for each class
-        assert sum(y_values) == len(sample_drawdown_classifications)
+        # Now uses percentages — should sum to ~100%
+        assert abs(sum(y_values) - 100.0) < 1.0
+
+    def test_bars_dollar_weighted(self, sample_drawdown_classifications):
+        from threshold.output.charts import build_drawdown_defense_bars
+        ticker_values = {
+            "AAPL": 50000, "MSFT": 30000, "GOOGL": 20000, "AMZN": 15000,
+            "META": 10000, "TSLA": 5000, "NVDA": 40000, "AMD": 25000,
+        }
+        fig = build_drawdown_defense_bars(
+            sample_drawdown_classifications, ticker_values=ticker_values,
+        )
+        assert fig is not None
+        # Should have 2 bar traces (count + dollar-weighted)
+        assert len(fig.data) == 2
 
     def test_empty_classifications(self):
         from threshold.output.charts import build_drawdown_defense_bars
@@ -478,17 +500,25 @@ class TestNarrative:
             output_dir=str(tmp_path),
         )
         content = Path(filepath).read_text()
+        # 23-section layout (some may be empty but headers should be present)
         assert "## 1. Macro Backdrop" in content
         assert "## 2. Dip-Buy Opportunities" in content
         assert "## 3. Falling Knife" in content
-        assert "## 4. Watch Zone" in content
-        assert "## 5. Reversal Signals" in content
-        assert "## 6. Sell Criteria" in content
-        assert "## 7. Drawdown Defense" in content
-        assert "## 8. Correlation" in content
-        assert "## 9. Sector Exposure" in content
-        assert "## 10. War Chest" in content
-        assert "## 11. Action Items" in content
+        assert "## 5. Watch Zone" in content
+        assert "## 7. Reversal Signals" in content
+        assert "## 12. Sell Criteria" in content
+        assert "## 15. Drawdown Defense" in content
+        assert "## 16. Correlation" in content
+        assert "## 17. Sector Exposure" in content
+        assert "## 18. War Chest" in content
+        assert "## 20. Action Items" in content
+        assert "## 21. Quick Reference" in content
+        # New sections from Phase 5
+        assert "## 8. Sub-Score Driver" in content
+        assert "## 9. Relative Strength" in content
+        assert "## 10. EPS Revision" in content
+        assert "## 11. OBV Divergence" in content
+        assert "## 19. Per-Account" in content
 
     def test_narrative_header_info(self, sample_pipeline_result, tmp_path):
         from threshold.output.narrative import generate_narrative
@@ -515,6 +545,8 @@ class TestNarrative:
 
     def test_narrative_sell_flags(self, sample_pipeline_result, tmp_path):
         from threshold.output.narrative import generate_narrative
+        # Sell alerts only show for holdings — mark TSLA as held
+        sample_pipeline_result.held_symbols = {"TSLA"}
         filepath = generate_narrative(
             sample_pipeline_result,
             output_dir=str(tmp_path),
@@ -785,10 +817,14 @@ class TestEdgeCases:
             )
             for i in range(5)
         }
-        result = PipelineResult(scores=scores)
+        # Sell alerts only show for holdings — mark all as held
+        held = {f"T{i}" for i in range(5)}
+        result = PipelineResult(scores=scores, held_symbols=held)
         filepath = generate_narrative(result, output_dir=str(tmp_path))
         content = Path(filepath).read_text()
-        assert "5** tickers have sell flags" in content
+        # New format: urgent section with REVIEW REQUIRED for 2+ flags
+        assert "REVIEW REQUIRED" in content
+        assert "5 tickers with 2+ flags" in content
 
     def test_drawdown_all_hedge(self, tmp_path):
         from threshold.output.narrative import generate_narrative
@@ -813,3 +849,264 @@ class TestEdgeCases:
         filepath = generate_narrative(result, output_dir=str(tmp_path))
         content = Path(filepath).read_text()
         assert "Complacent" in content or "half-size" in content
+
+
+# ---------------------------------------------------------------------------
+# New section tests (Phase 5/6 enrichments)
+# ---------------------------------------------------------------------------
+
+
+class TestNarrativeNewSections:
+    """Test the 9 new narrative sections added in Phase 5."""
+
+    def _generate(self, tmp_path, **kwargs):
+        from threshold.output.narrative import generate_narrative
+        defaults = dict(output_dir=str(tmp_path))
+        defaults.update(kwargs)
+        result = defaults.pop("result", None)
+        if result is None:
+            result = PipelineResult(scores={})
+        filepath = generate_narrative(result, **defaults)
+        return Path(filepath).read_text()
+
+    def test_dipbuy_holdings_watchlist_split(self, tmp_path):
+        """Dip-buy section should split holdings vs watchlist when held_symbols given."""
+        from threshold.output.narrative import generate_narrative
+        scores = {
+            "HELD1": _make_scoring_result(dcs=70, signal="HIGH CONVICTION"),
+            "WL1": _make_scoring_result(dcs=68, signal="BUY DIP"),
+        }
+        scores["HELD1"]["is_holding"] = True
+        scores["WL1"]["is_holding"] = False
+        result = PipelineResult(scores=scores, held_symbols={"HELD1"})
+        filepath = generate_narrative(result, output_dir=str(tmp_path))
+        content = Path(filepath).read_text()
+        assert "Portfolio Holdings" in content
+        assert "Watchlist Candidates" in content
+
+    def test_hedge_downtrend_section(self, tmp_path):
+        """Hedges/defensives with falling knife caps should appear separately."""
+        from threshold.output.narrative import generate_narrative
+        scores = {
+            "GOLD": _make_scoring_result(
+                dcs=55,
+                falling_knife={"reason": "20d_velocity", "capped_dcs": 55},
+            ),
+        }
+        dd = {"GOLD": "HEDGE"}
+        result = PipelineResult(scores=scores)
+        filepath = generate_narrative(
+            result, drawdown_classifications=dd, output_dir=str(tmp_path),
+        )
+        content = Path(filepath).read_text()
+        assert "## 4. Hedges & Defensives" in content
+
+    def test_bitcoin_crypto_section(self, tmp_path):
+        """Crypto section appears when exempt tickers exist."""
+        from threshold.output.narrative import generate_narrative
+        scores = {
+            "FBTC": _make_scoring_result(dcs=30, signal="WEAK"),
+        }
+        result = PipelineResult(
+            scores=scores,
+            exempt_tickers={"FBTC": {"type": "crypto_halving", "reason": "4-year cycle"}},
+        )
+        filepath = generate_narrative(result, output_dir=str(tmp_path))
+        content = Path(filepath).read_text()
+        assert "## 6. Bitcoin & Crypto" in content
+
+    def test_subscore_driver_section(self, tmp_path):
+        """Sub-score driver analysis should show top DCS tickers."""
+        from threshold.output.narrative import generate_narrative
+        scores = {
+            "TOP": _make_scoring_result(
+                dcs=75, signal="STRONG BUY",
+                sub_scores={"MQ": 85, "FQ": 70, "TO": 65, "MR": 50, "VC": 55},
+            ),
+        }
+        result = PipelineResult(scores=scores)
+        filepath = generate_narrative(result, output_dir=str(tmp_path))
+        content = Path(filepath).read_text()
+        assert "## 8. Sub-Score Driver" in content
+        assert "TOP" in content
+        assert "MQ" in content
+
+    def test_relative_strength_section(self, tmp_path):
+        """RS vs SPY section surfaces technicals.rs_vs_spy."""
+        from threshold.output.narrative import generate_narrative
+        scores = {
+            "OUTPERFORMER": _make_scoring_result(dcs=70),
+            "LAGGARD": _make_scoring_result(dcs=40),
+        }
+        scores["OUTPERFORMER"]["technicals"]["rs_vs_spy"] = 1.25
+        scores["LAGGARD"]["technicals"]["rs_vs_spy"] = 0.65
+        result = PipelineResult(scores=scores)
+        filepath = generate_narrative(result, output_dir=str(tmp_path))
+        content = Path(filepath).read_text()
+        assert "## 9. Relative Strength" in content
+
+    def test_revision_momentum_section(self, tmp_path):
+        """EPS revision momentum section surfaces revision_momentum data."""
+        from threshold.output.narrative import generate_narrative
+        scores = {
+            "IMPROVING": _make_scoring_result(dcs=65),
+            "DECLINING": _make_scoring_result(dcs=50),
+        }
+        scores["IMPROVING"]["revision_momentum"] = {"direction": "improving", "delta_4w": 0.15}
+        scores["DECLINING"]["revision_momentum"] = {"direction": "declining", "delta_4w": -0.20}
+        result = PipelineResult(scores=scores)
+        filepath = generate_narrative(result, output_dir=str(tmp_path))
+        content = Path(filepath).read_text()
+        assert "## 10. EPS Revision" in content
+
+    def test_obv_divergence_section(self, tmp_path):
+        """OBV divergence section surfaces obv data from technicals."""
+        from threshold.output.narrative import generate_narrative
+        scores = {
+            "ACCUM": _make_scoring_result(dcs=60),
+        }
+        scores["ACCUM"]["technicals"]["obv_divergence"] = "bullish"
+        scores["ACCUM"]["technicals"]["obv_divergence_strength"] = 0.8
+        result = PipelineResult(scores=scores)
+        filepath = generate_narrative(result, output_dir=str(tmp_path))
+        content = Path(filepath).read_text()
+        assert "## 11. OBV Divergence" in content
+
+    def test_per_account_section(self, tmp_path):
+        """Per-account holdings health appears when positions provided."""
+        from threshold.output.narrative import generate_narrative
+        positions = [
+            {"account_id": "Brokerage", "symbol": "AAPL", "market_value": 10000, "quantity": 50},
+            {"account_id": "Brokerage", "symbol": "MSFT", "market_value": 8000, "quantity": 30},
+            {"account_id": "Roth", "symbol": "GOOGL", "market_value": 5000, "quantity": 20},
+        ]
+        scores = {
+            "AAPL": _make_scoring_result(dcs=70, signal="HIGH CONVICTION"),
+            "MSFT": _make_scoring_result(dcs=55, signal="WATCH"),
+            "GOOGL": _make_scoring_result(dcs=60, signal="LEAN BUY"),
+        }
+        result = PipelineResult(scores=scores)
+        filepath = generate_narrative(
+            result, positions=positions, output_dir=str(tmp_path),
+        )
+        content = Path(filepath).read_text()
+        assert "## 19. Per-Account" in content
+        assert "Brokerage" in content
+        assert "Roth" in content
+
+    def test_quick_reference_section(self, sample_pipeline_result, tmp_path):
+        """Quick reference section appears at the end."""
+        from threshold.output.narrative import generate_narrative
+        filepath = generate_narrative(sample_pipeline_result, output_dir=str(tmp_path))
+        content = Path(filepath).read_text()
+        assert "## 21. Quick Reference" in content
+        assert "VIX" in content
+        assert "Top DCS" in content
+
+    def test_war_chest_with_values(self, tmp_path):
+        """War chest section shows dollar amounts when provided."""
+        from threshold.output.narrative import generate_narrative
+        result = PipelineResult(scores={}, vix_regime="NORMAL")
+        filepath = generate_narrative(
+            result,
+            war_chest_pct=0.08,
+            war_chest_target=0.12,
+            war_chest_value=32000.0,
+            total_portfolio_value=400000.0,
+            output_dir=str(tmp_path),
+        )
+        content = Path(filepath).read_text()
+        assert "## 18. War Chest" in content
+        assert "$32,000" in content or "32,000" in content
+        assert "SHORTFALL" in content or "below" in content.lower()
+
+    def test_drawdown_dollar_weighted(self, tmp_path):
+        """Drawdown section shows dollar-weighted columns when values provided."""
+        from threshold.output.narrative import generate_narrative
+        dd = {"AAPL": "MODERATE", "GOLD": "HEDGE", "TSLA": "AMPLIFIER"}
+        tv = {"AAPL": 50000, "GOLD": 30000, "TSLA": 20000}
+        result = PipelineResult(scores={})
+        filepath = generate_narrative(
+            result,
+            drawdown_classifications=dd,
+            ticker_values=tv,
+            output_dir=str(tmp_path),
+        )
+        content = Path(filepath).read_text()
+        assert "## 15. Drawdown Defense" in content
+        assert "$ Value" in content or "Dollar" in content or "$" in content
+
+
+class TestDashboardNewSections:
+    """Test the 6 new dashboard sections added in Phase 6."""
+
+    def test_dashboard_has_deployment_section(self, sample_pipeline_result, tmp_path):
+        from threshold.output.dashboard import generate_dashboard
+        filepath = generate_dashboard(
+            sample_pipeline_result,
+            output_dir=str(tmp_path),
+            auto_open=False,
+        )
+        content = Path(filepath).read_text()
+        assert "deployment" in content.lower()
+
+    def test_dashboard_has_sell_alerts(self, tmp_path):
+        from threshold.output.dashboard import generate_dashboard
+        scores = {
+            "BAD": _make_scoring_result(dcs=30, sell_flags=["QUANT_BELOW_2", "BELOW_200D"]),
+        }
+        result = PipelineResult(scores=scores)
+        filepath = generate_dashboard(result, output_dir=str(tmp_path), auto_open=False)
+        content = Path(filepath).read_text()
+        assert "sell-alerts" in content.lower() or "alert" in content.lower()
+
+    def test_dashboard_has_holdings_section(self, tmp_path):
+        from threshold.output.dashboard import generate_dashboard
+        positions = [
+            {"account": "Brokerage", "symbol": "AAPL", "market_value": 10000, "quantity": 50},
+        ]
+        scores = {"AAPL": _make_scoring_result(dcs=70)}
+        result = PipelineResult(scores=scores, held_symbols={"AAPL"})
+        filepath = generate_dashboard(
+            result, positions=positions, output_dir=str(tmp_path), auto_open=False,
+        )
+        content = Path(filepath).read_text()
+        assert "holdings" in content.lower()
+
+    def test_dashboard_has_behavioral_section(self, sample_pipeline_result, tmp_path):
+        from threshold.output.dashboard import generate_dashboard
+        filepath = generate_dashboard(
+            sample_pipeline_result,
+            output_dir=str(tmp_path),
+            auto_open=False,
+        )
+        content = Path(filepath).read_text()
+        assert "behavioral" in content.lower()
+        assert "FOMO" in content or "fomo" in content.lower()
+
+    def test_dashboard_war_chest_with_values(self, tmp_path):
+        from threshold.output.dashboard import generate_dashboard
+        result = PipelineResult(scores={}, vix_regime="FEAR")
+        filepath = generate_dashboard(
+            result,
+            war_chest_pct=0.18,
+            war_chest_target=0.15,
+            war_chest_value=72000.0,
+            total_portfolio_value=400000.0,
+            output_dir=str(tmp_path),
+            auto_open=False,
+        )
+        content = Path(filepath).read_text()
+        assert "72,000" in content or "$72" in content
+
+    def test_dashboard_navbar_has_new_links(self, sample_pipeline_result, tmp_path):
+        from threshold.output.dashboard import generate_dashboard
+        filepath = generate_dashboard(
+            sample_pipeline_result,
+            output_dir=str(tmp_path),
+            auto_open=False,
+        )
+        content = Path(filepath).read_text()
+        # New navbar should have these sections
+        for section in ["macro", "allocation", "drawdown", "selection", "behavioral"]:
+            assert section in content.lower()

@@ -176,23 +176,33 @@ def extract_sa_data_from_ratings(
         return result
 
     # Column name mapping: SA export column -> our key
+    # SA exports use "Quant Score", "Momentum Grade", etc. — must match exactly.
     grade_columns = {
         "Quant": "quantScore",
         "Quant Rating": "quantScore",
         "SA Quant Rating": "quantScore",
+        "Quant Score": "quantScore",           # actual SA export column
+        "SA Analysts Score": "saAnalysts",     # analyst consensus (numeric)
+        "Wall St. Score": "wallStreet",        # wall street consensus (numeric)
     }
     letter_columns = {
         "Momentum": "momentum",
         "Mom": "momentum",
+        "Momentum Grade": "momentum",          # actual SA export column
+        "ETF Momentum": "momentum",            # ETF variant
         "Profitability": "profitability",
         "Prof": "profitability",
+        "Profitability Grade": "profitability", # actual SA export column
         "EPS Revisions": "revisions",
         "Revisions": "revisions",
         "EPS Rev": "revisions",
+        "EPS Revision Grade": "revisions",    # actual SA export column
         "Growth": "growth",
+        "Growth Grade": "growth",              # actual SA export column
         "Valuation": "valuation",
         "Value": "valuation",
         "Val": "valuation",
+        "Valuation Grade": "valuation",        # actual SA export column
     }
 
     for _, row in ratings_df.iterrows():

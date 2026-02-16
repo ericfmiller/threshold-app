@@ -273,9 +273,12 @@ def import_sa_exports(ctx: click.Context, dir_path: str, dry_run: bool) -> None:
 @click.option("--date", "snapshot_date", default=None, help="Snapshot date (YYYY-MM-DD)")
 @click.pass_context
 def import_positions(ctx: click.Context, snapshot_date: str | None) -> None:
-    """Import positions from SA export Holdings sheets into the database."""
+    """Import positions from SA export Holdings sheets + TSP/BTC into the database."""
     from threshold.config.loader import load_config, resolve_path
-    from threshold.data.position_import import import_all_positions
+    from threshold.data.position_import import (
+        import_all_positions,
+        import_synthetic_positions,
+    )
     from threshold.storage.database import Database
     from threshold.storage.migrations import ensure_schema
 
@@ -286,10 +289,15 @@ def import_positions(ctx: click.Context, snapshot_date: str | None) -> None:
         ensure_schema(db)
         result = import_all_positions(db, config, snapshot_date)
 
+        # Also import TSP + BTC synthetic positions
+        synthetic = import_synthetic_positions(db, config, snapshot_date)
+
     click.echo(
         f"Imported {result.positions_imported} positions "
         f"from {result.accounts_processed} accounts"
     )
+    if synthetic > 0:
+        click.echo(f"Imported {synthetic} synthetic position(s) (TSP/BTC)")
     if result.errors:
         click.echo(f"  Errors: {len(result.errors)}")
         for err in result.errors[:5]:

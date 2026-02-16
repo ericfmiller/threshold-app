@@ -133,8 +133,8 @@ class TestConfigSchema:
     def test_separate_holdings(self):
         config = ThresholdConfig(
             separate_holdings=[
-                {"symbol": "BTC-USD", "quantity": 3.5, "description": "Bitcoin"}
+                {"symbol": "BTC-USD", "quantity": 2.0, "description": "Bitcoin"}
             ]
         )
         assert len(config.separate_holdings) == 1
-        assert config.separate_holdings[0].quantity == 3.5
+        assert config.separate_holdings[0].quantity == 2.0

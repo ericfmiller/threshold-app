@@ -34,12 +34,12 @@ class TestCapturePerformanceSnapshot:
         mock_db = MagicMock()
         snap = capture_performance_snapshot(
             mock_db,
-            total_portfolio=857000.0,
+            total_portfolio=750000.0,
             spy_close=500.0,
             btc_price=65000.0,
             snapshot_date="2026-02-15",
         )
-        assert snap.total_portfolio == 857000.0
+        assert snap.total_portfolio == 750000.0
         assert snap.spy_close == 500.0
         mock_db.execute.assert_called_once()
         mock_db.conn.commit.assert_called_once()
@@ -50,7 +50,7 @@ class TestCapturePerformanceSnapshot:
         with patch("threshold.portfolio.performance._fetch_spy_close", return_value=505.0):
             snap = capture_performance_snapshot(
                 mock_db,
-                total_portfolio=857000.0,
+                total_portfolio=750000.0,
                 snapshot_date="2026-02-15",
             )
         assert snap.spy_close == 505.0
