@@ -301,6 +301,62 @@ def get_data_freshness(db: Database) -> dict[str, dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Positions
+# ---------------------------------------------------------------------------
+
+def get_latest_positions(
+    db: Database, snapshot_date: str | None = None
+) -> list[dict[str, Any]]:
+    """Load positions for a given snapshot date (or the latest)."""
+    if snapshot_date is None:
+        row = db.fetchone("SELECT MAX(snapshot_date) as d FROM positions")
+        if row and row["d"]:
+            snapshot_date = row["d"]
+        else:
+            return []
+    rows = db.fetchall(
+        "SELECT * FROM positions WHERE snapshot_date = ? ORDER BY account_id, symbol",
+        (snapshot_date,),
+    )
+    return [dict(r) for r in rows]
+
+
+def get_account_totals(
+    db: Database, snapshot_date: str | None = None
+) -> dict[str, float]:
+    """Compute account totals from positions table."""
+    positions = get_latest_positions(db, snapshot_date)
+    totals: dict[str, float] = {}
+    for pos in positions:
+        acct = pos.get("account_id", "")
+        value = float(pos.get("market_value", 0))
+        totals[acct] = totals.get(acct, 0) + value
+    return totals
+
+
+# ---------------------------------------------------------------------------
+# Portfolio Snapshots
+# ---------------------------------------------------------------------------
+
+def get_latest_snapshot(db: Database) -> dict[str, Any] | None:
+    """Get the most recent portfolio snapshot."""
+    row = db.fetchone(
+        "SELECT * FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT 1"
+    )
+    return dict(row) if row else None
+
+
+def list_snapshots(db: Database, limit: int = 52) -> list[dict[str, Any]]:
+    """List recent portfolio snapshots."""
+    rows = db.fetchall(
+        "SELECT snapshot_date, total_portfolio, fidelity_total, tsp_value, btc_value "
+        "FROM portfolio_snapshots ORDER BY snapshot_date DESC LIMIT ?",
+        (limit,),
+    )
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
 # Alden Categories
 # ---------------------------------------------------------------------------
 

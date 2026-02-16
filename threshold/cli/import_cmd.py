@@ -231,3 +231,57 @@ def import_sa_exports(ctx: click.Context, dir_path: str, dry_run: bool) -> None:
         click.echo(f"  Errors: {len(result.errors)}")
         for err in result.errors[:5]:
             click.echo(f"    - {err}")
+
+
+@import_group.command("positions")
+@click.option("--date", "snapshot_date", default=None, help="Snapshot date (YYYY-MM-DD)")
+@click.pass_context
+def import_positions(ctx: click.Context, snapshot_date: str | None) -> None:
+    """Import positions from SA export Holdings sheets into the database."""
+    from threshold.config.loader import load_config, resolve_path
+    from threshold.data.position_import import import_all_positions
+    from threshold.storage.database import Database
+    from threshold.storage.migrations import ensure_schema
+
+    config = load_config(ctx.obj.get("config_path"))
+    db_path = resolve_path(config.database.path)
+
+    with Database(db_path) as db:
+        ensure_schema(db)
+        result = import_all_positions(db, config, snapshot_date)
+
+    click.echo(
+        f"Imported {result.positions_imported} positions "
+        f"from {result.accounts_processed} accounts"
+    )
+    if result.errors:
+        click.echo(f"  Errors: {len(result.errors)}")
+        for err in result.errors[:5]:
+            click.echo(f"    - {err}")
+
+
+@import_group.command("snapshot")
+@click.option("--date", "snapshot_date", default=None, help="Snapshot date (YYYY-MM-DD)")
+@click.pass_context
+def import_snapshot(ctx: click.Context, snapshot_date: str | None) -> None:
+    """Generate and save a portfolio snapshot from current positions."""
+    from threshold.config.loader import load_config, resolve_path
+    from threshold.data.snapshot import generate_snapshot, save_snapshot
+    from threshold.storage.database import Database
+    from threshold.storage.migrations import ensure_schema
+
+    config = load_config(ctx.obj.get("config_path"))
+    db_path = resolve_path(config.database.path)
+
+    with Database(db_path) as db:
+        ensure_schema(db)
+        snapshot_data = generate_snapshot(db, config, snapshot_date)
+        save_snapshot(db, snapshot_data)
+
+    click.echo(
+        f"Snapshot saved: {snapshot_data['snapshot_date']} — "
+        f"Total: ${snapshot_data['total_portfolio']:,.2f} "
+        f"(Fidelity ${snapshot_data['fidelity_total']:,.2f}, "
+        f"TSP ${snapshot_data['tsp_value']:,.2f}, "
+        f"BTC ${snapshot_data['btc_value']:,.2f})"
+    )

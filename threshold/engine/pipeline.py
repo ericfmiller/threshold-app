@@ -118,6 +118,59 @@ class PipelineResult:
 
 
 # ---------------------------------------------------------------------------
+# SA data auto-loading
+# ---------------------------------------------------------------------------
+
+def _load_sa_data_from_exports(
+    config: ThresholdConfig,
+    tracker: RunTracker,
+) -> dict[str, dict[str, Any]]:
+    """Attempt to load SA ratings from the latest export files.
+
+    Falls back to empty dict if exports aren't configured or available.
+    """
+    try:
+        from threshold.data.adapters.sa_export_reader import (
+            extract_sa_data_from_ratings,
+            read_all_sa_exports,
+        )
+
+        export_dir = config.data_sources.seeking_alpha.export_dir
+        if not export_dir:
+            tracker.data_sources["sa_exports"] = "skipped"
+            return {}
+
+        from pathlib import Path
+
+        if not Path(export_dir).is_dir():
+            tracker.data_sources["sa_exports"] = "skipped"
+            return {}
+
+        all_exports = read_all_sa_exports(export_dir)
+        sa_data: dict[str, dict[str, Any]] = {}
+
+        for _filename, sheets in all_exports.items():
+            ratings_df = sheets.get("Ratings")
+            if ratings_df is not None:
+                file_data = extract_sa_data_from_ratings(ratings_df)
+                # Merge — later files overwrite earlier for same ticker
+                sa_data.update(file_data)
+
+        if sa_data:
+            tracker.data_sources["sa_exports"] = "ok"
+            logger.info("  Auto-loaded SA data for %d tickers from exports", len(sa_data))
+        else:
+            tracker.data_sources["sa_exports"] = "empty"
+
+        return sa_data
+
+    except Exception as e:
+        tracker.data_sources["sa_exports"] = "failed"
+        logger.warning("  Could not load SA exports: %s", e)
+        return {}
+
+
+# ---------------------------------------------------------------------------
 # Price fetching
 # ---------------------------------------------------------------------------
 
@@ -298,8 +351,10 @@ def run_scoring_pipeline(
             logger.warning("Ticker %s not found in database", ticker_filter)
             return result
 
-    # Build SA data dict
+    # Build SA data dict — auto-load from exports if not provided
     sa_ratings = sa_data or {}
+    if not sa_ratings:
+        sa_ratings = _load_sa_data_from_exports(config, tracker)
 
     # Exempt tickers (crypto, war chest, etc.)
     exempt_tickers = {
