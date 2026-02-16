@@ -169,6 +169,47 @@ def score_ticker(
     mr = ctx.market_regime_score
     vc = calc_valuation_context(sa_data, yf_fundamentals=yf_fundamentals, config=config)
 
+    # --- Advanced signal overlays (Phase 2C, all disabled by default) ---
+    advanced_signals: dict[str, Any] = {}
+    if config is not None and hasattr(config, "advanced"):
+        adv = config.advanced
+
+        # Trend Following: blend into MQ sub-score
+        if hasattr(adv, "trend_following") and adv.trend_following.enabled:
+            from threshold.engine.advanced.trend_following import ContinuousTrendFollower
+            tf = ContinuousTrendFollower(
+                window=adv.trend_following.window,
+                vol_window=adv.trend_following.vol_window,
+            )
+            trend_sig = tf.compute_signal(close)
+            if trend_sig is not None:
+                blend_w = adv.trend_following.mq_blend_weight
+                trend_norm = (trend_sig["signal"] + 1) / 2  # [-1,1] → [0,1]
+                mq = (1 - blend_w) * mq + blend_w * trend_norm
+                advanced_signals["trend_following"] = dict(trend_sig)
+
+        # Sentiment: reduce MR when overheated
+        if hasattr(adv, "sentiment") and adv.sentiment.enabled:
+            try:
+                from threshold.engine.advanced.sentiment import AlignedSentimentIndex
+                asi = AlignedSentimentIndex(
+                    n_components=adv.sentiment.n_components,
+                    mr_reduction=adv.sentiment.mr_reduction,
+                    overheated_pctl=adv.sentiment.overheated_pctl,
+                    depressed_pctl=adv.sentiment.depressed_pctl,
+                    min_observations=adv.sentiment.min_observations,
+                )
+                # Sentiment requires proxy data from context
+                proxy_data = getattr(ctx, "sentiment_proxies", None)
+                market_rets = getattr(ctx, "market_returns", None)
+                if proxy_data is not None:
+                    sent_result = asi.compute(proxy_data, market_rets)
+                    if sent_result["mr_adjustment"] > 0:
+                        mr = mr * (1 - sent_result["mr_adjustment"])
+                    advanced_signals["sentiment"] = dict(sent_result)
+            except ImportError:
+                pass  # scikit-learn not installed, skip
+
     # --- Compose raw DCS ---
     sub_score_dict = {"MQ": mq, "FQ": fq, "TO": to, "MR": mr, "VC": vc}
 
@@ -417,5 +458,9 @@ def score_ticker(
                 yf_meta[key] = round(val, 4) if isinstance(val, float) else val
         if yf_meta:
             result["yf_fundamentals"] = yf_meta
+
+    # Advanced signal metadata (Phase 2C)
+    if advanced_signals:
+        result["advanced_signals"] = advanced_signals
 
     return result  # type: ignore[return-value]

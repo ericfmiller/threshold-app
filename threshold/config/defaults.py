@@ -384,6 +384,32 @@ RISK_CDAR = {
 }
 
 # ---------------------------------------------------------------------------
+# Advanced Signals Defaults (Phase 2C — all disabled by default)
+# ---------------------------------------------------------------------------
+ADVANCED_TREND_FOLLOWING = {
+    "enabled": False,
+    "window": 252,              # OLS regression lookback (trading days)
+    "vol_window": 60,           # Yang-Zhang volatility estimation window
+    "mq_blend_weight": 0.20,   # 20% blend into MQ sub-score
+}
+
+ADVANCED_FACTOR_MOMENTUM = {
+    "enabled": False,
+    "lookback_months": 12,      # Cumulative factor return period
+    "breadth_threshold_high": 0.65,
+    "breadth_threshold_low": 0.35,
+}
+
+ADVANCED_SENTIMENT = {
+    "enabled": False,
+    "n_components": 1,          # PLS components for aligned sentiment
+    "mr_reduction": 0.15,       # 15% MR haircut when overheated
+    "overheated_pctl": 0.80,    # >80th percentile = OVERHEATED
+    "depressed_pctl": 0.20,     # <20th percentile = DEPRESSED
+    "min_observations": 60,
+}
+
+# ---------------------------------------------------------------------------
 # Data Source Defaults
 # ---------------------------------------------------------------------------
 YFINANCE_DEFAULTS = {

@@ -28,6 +28,9 @@ from threshold.config.defaults import (
     MR_WEIGHTS,
     PROFITABILITY_BLEND,
     REVISION_MOMENTUM,
+    ADVANCED_FACTOR_MOMENTUM,
+    ADVANCED_SENTIMENT,
+    ADVANCED_TREND_FOLLOWING,
     RISK_CDAR,
     RISK_CVAR,
     RISK_EBP,
@@ -270,6 +273,39 @@ class RiskConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Advanced Signals Config (Phase 2C — all disabled by default)
+# ---------------------------------------------------------------------------
+
+class TrendFollowingConfig(BaseModel):
+    enabled: bool = ADVANCED_TREND_FOLLOWING["enabled"]
+    window: int = ADVANCED_TREND_FOLLOWING["window"]
+    vol_window: int = ADVANCED_TREND_FOLLOWING["vol_window"]
+    mq_blend_weight: float = ADVANCED_TREND_FOLLOWING["mq_blend_weight"]
+
+
+class FactorMomentumConfig(BaseModel):
+    enabled: bool = ADVANCED_FACTOR_MOMENTUM["enabled"]
+    lookback_months: int = ADVANCED_FACTOR_MOMENTUM["lookback_months"]
+    breadth_threshold_high: float = ADVANCED_FACTOR_MOMENTUM["breadth_threshold_high"]
+    breadth_threshold_low: float = ADVANCED_FACTOR_MOMENTUM["breadth_threshold_low"]
+
+
+class SentimentConfig(BaseModel):
+    enabled: bool = ADVANCED_SENTIMENT["enabled"]
+    n_components: int = ADVANCED_SENTIMENT["n_components"]
+    mr_reduction: float = ADVANCED_SENTIMENT["mr_reduction"]
+    overheated_pctl: float = ADVANCED_SENTIMENT["overheated_pctl"]
+    depressed_pctl: float = ADVANCED_SENTIMENT["depressed_pctl"]
+    min_observations: int = ADVANCED_SENTIMENT["min_observations"]
+
+
+class AdvancedConfig(BaseModel):
+    trend_following: TrendFollowingConfig = Field(default_factory=TrendFollowingConfig)
+    factor_momentum: FactorMomentumConfig = Field(default_factory=FactorMomentumConfig)
+    sentiment: SentimentConfig = Field(default_factory=SentimentConfig)
+
+
+# ---------------------------------------------------------------------------
 # Sell Criteria Config
 # ---------------------------------------------------------------------------
 
@@ -436,6 +472,7 @@ class ThresholdConfig(BaseModel):
     data_sources: DataSourcesConfig = Field(default_factory=DataSourcesConfig)
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
+    advanced: AdvancedConfig = Field(default_factory=AdvancedConfig)
     sell_criteria: SellCriteriaConfig = Field(default_factory=SellCriteriaConfig)
     allocation: AllocationConfig = Field(default_factory=AllocationConfig)
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
