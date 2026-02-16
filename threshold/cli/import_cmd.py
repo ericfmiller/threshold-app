@@ -192,3 +192,42 @@ def import_drawdown(ctx: click.Context, path: str) -> None:
                 count += 1
 
     click.echo(f"Imported {count} drawdown classifications from {path}")
+
+
+@import_group.command("sa-exports")
+@click.argument("dir_path", type=click.Path(exists=True))
+@click.option("--dry-run", is_flag=True, help="Discover but don't register new tickers")
+@click.pass_context
+def import_sa_exports(ctx: click.Context, dir_path: str, dry_run: bool) -> None:
+    """Import SA Excel exports: discover tickers and extract SA data.
+
+    DIR_PATH: directory containing SA export .xlsx files.
+    """
+    from threshold.config.loader import load_config, resolve_path
+    from threshold.data.onboarding import run_onboarding
+    from threshold.storage.database import Database
+
+    config = load_config(ctx.obj.get("config_path"))
+    db_path = resolve_path(config.database.path)
+
+    with Database(db_path) as db:
+        result = run_onboarding(
+            db=db,
+            export_dir=dir_path,
+            z_file_dirs=[config.data_sources.seeking_alpha.z_file_dir]
+            if config.data_sources.seeking_alpha.z_file_dir
+            else None,
+            dry_run=dry_run,
+        )
+
+    click.echo(
+        f"{'[DRY RUN] ' if dry_run else ''}"
+        f"Onboarded {result.new_count} new tickers "
+        f"({result.review_needed} need review)"
+    )
+    if result.review_tickers:
+        click.echo(f"  Review needed: {', '.join(result.review_tickers)}")
+    if result.errors:
+        click.echo(f"  Errors: {len(result.errors)}")
+        for err in result.errors[:5]:
+            click.echo(f"    - {err}")

@@ -40,6 +40,7 @@ from threshold.cli.dashboard_cmd import dashboard_cmd, narrative_cmd  # noqa: E4
 from threshold.cli.import_cmd import import_group  # noqa: E402
 from threshold.cli.score import score_cmd  # noqa: E402
 from threshold.cli.ticker import ticker_group  # noqa: E402
+from threshold.cli.watch_cmd import watch_cmd  # noqa: E402
 
 cli.add_command(config_group, "config")
 cli.add_command(dashboard_cmd, "dashboard")
@@ -47,6 +48,7 @@ cli.add_command(import_group, "import")
 cli.add_command(narrative_cmd, "narrative")
 cli.add_command(score_cmd, "score")
 cli.add_command(ticker_group, "ticker")
+cli.add_command(watch_cmd, "watch")
 
 
 @cli.command()

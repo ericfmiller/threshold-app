@@ -74,7 +74,10 @@ class SeekingAlphaConfig(BaseModel):
     enabled: bool = True
     api_url: str = SA_DEFAULTS["api_url"]
     export_dir: str = ""
+    z_file_dir: str = ""
     stale_threshold_days: int = SA_DEFAULTS["stale_threshold_days"]
+    watch_interval_seconds: int = 600
+    api_rate_delay: float = 1.0
 
 
 class FredConfig(BaseModel):
