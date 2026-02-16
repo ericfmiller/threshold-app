@@ -27,6 +27,11 @@ import pandas as pd
 from threshold.config.schema import ThresholdConfig
 from threshold.engine.composite import classify_vix
 from threshold.engine.context import ScoringContext
+from threshold.engine.exemptions import ExemptionResult, get_exempt_tickers
+from threshold.engine.grace_period import (
+    expire_overdue_grace_periods,
+    list_active_grace_periods,
+)
 from threshold.engine.scorer import ScoringResult, score_ticker
 from threshold.portfolio.correlation import (
     CorrelationReport,
@@ -100,6 +105,10 @@ class PipelineResult:
     breadth_pct: float = 0.0
     tracker: RunTracker = field(default_factory=RunTracker)
     alerts: list[dict[str, Any]] = field(default_factory=list)
+    exempt_tickers: dict[str, ExemptionResult] = field(default_factory=dict)
+    """symbol → ExemptionResult for exempt tickers."""
+    active_grace_periods: list[dict[str, Any]] = field(default_factory=list)
+    """Active grace periods with ticker, tier, days remaining, reason."""
 
     @property
     def n_scored(self) -> int:
@@ -341,6 +350,11 @@ def run_scoring_pipeline(
     # ------------------------------------------------------------------
     logger.info("[1/6] Building ticker universe...")
 
+    # Expire any overdue grace periods before scoring
+    expired_gp = expire_overdue_grace_periods(db)
+    if expired_gp:
+        logger.info("  Expired %d overdue grace period(s)", expired_gp)
+
     all_tickers_db = list_tickers(db)
     ticker_symbols = [t["symbol"] for t in all_tickers_db]
     ticker_meta = {t["symbol"]: t for t in all_tickers_db}
@@ -371,6 +385,11 @@ def run_scoring_pipeline(
         len(tickers_to_score),
         len(exempt_tickers),
     )
+
+    # Load exemptions and grace periods early — these don't depend on prices
+    # and should always be populated on the result, even if price fetch fails.
+    result.exempt_tickers = get_exempt_tickers(all_tickers_db, config)
+    result.active_grace_periods = list_active_grace_periods(db)
 
     # ------------------------------------------------------------------
     # Step 2: Fetch price data
@@ -470,6 +489,7 @@ def run_scoring_pipeline(
             logger.error("  %s: scoring error: %s", ticker, e)
 
     result.scores = scored_results
+
     logger.info(
         "  Scored %d, skipped %d, failed %d",
         tracker.tickers_scored,

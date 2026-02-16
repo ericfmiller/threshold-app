@@ -9,10 +9,13 @@ Sections
 1. Header & Run Summary
 2. Macro Backdrop (VIX, SPY, breadth)
 3. Dip-Buy Opportunities (DCS >= 65)
+2.5. Deployment Gate 3 — Parabolic Filter
 4. Falling Knife Alerts
 5. Watch Zone (DCS 50-64)
 6. Reversal Signals
 7. Sell Criteria & Flags
+6b. Active Grace Periods
+6c. Exemption Status
 8. Drawdown Defense Composition
 9. Correlation & Diversification
 10. Sector Exposure
@@ -25,6 +28,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from threshold.engine.pipeline import PipelineResult
 
@@ -322,6 +326,143 @@ def _build_sell_criteria_section(result: PipelineResult) -> str:
     return "\n".join(lines)
 
 
+def _build_grace_period_section(
+    active_grace_periods: list[dict[str, Any]] | None,
+) -> str:
+    """Section 6b: Active Grace Periods."""
+    lines = ["## 6b. Active Grace Periods", ""]
+
+    if not active_grace_periods:
+        lines.append("No active grace periods.")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.append(f"**{len(active_grace_periods)}** active grace period(s):")
+    lines.append("")
+    lines.append("| Ticker | Tier | Days Left | Reason | Expires |")
+    lines.append("|--------|------|-----------|--------|---------|")
+
+    for gp in active_grace_periods:
+        symbol = gp.get("symbol", "")
+        tier = gp.get("tier", 0)
+        days = gp.get("days_remaining", 0)
+        reason = gp.get("reason", "")
+        expires = gp.get("expires_at", "")
+        lines.append(
+            f"| **{symbol}** | {tier}d | {days} | {reason} | {expires} |"
+        )
+
+    lines.append("")
+    lines.append(
+        "> Grace periods soften sell signals: SELL -> HOLD during the hold "
+        "window. Ticker still tracked and DCS computed."
+    )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _build_exemption_section(
+    exempt_tickers: dict[str, Any] | None,
+) -> str:
+    """Section 6c: Exemption Status."""
+    lines = ["## 6c. Exemption Status", ""]
+
+    if not exempt_tickers:
+        lines.append("No tickers with exemptions.")
+        lines.append("")
+        return "\n".join(lines)
+
+    crypto = []
+    cash = []
+    expired = []
+
+    for ticker, exemption in exempt_tickers.items():
+        # Handle both ExemptionResult objects and dicts
+        ex_type = getattr(exemption, "exemption_type", "")
+        is_expired = getattr(exemption, "is_expired", False)
+        expires_at = getattr(exemption, "expires_at", "")
+
+        if is_expired:
+            expired.append((ticker, expires_at))
+        elif ex_type == "crypto_halving":
+            crypto.append((ticker, expires_at))
+        elif ex_type == "cash":
+            cash.append(ticker)
+
+    if crypto:
+        lines.append("### Crypto Halving Cycle (exempt from sell rules)")
+        for ticker, expiry in crypto:
+            expiry_note = f" — expires {expiry}" if expiry else ""
+            lines.append(f"- **{ticker}**{expiry_note}")
+        lines.append("")
+
+    if cash:
+        lines.append("### Cash / War Chest (permanent exemption)")
+        for ticker in cash:
+            lines.append(f"- **{ticker}**")
+        lines.append("")
+
+    if expired:
+        lines.append("### Expired Exemptions")
+        for ticker, expiry in expired:
+            lines.append(f"- {ticker} — exemption expired {expiry}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def _build_gate3_section(result: PipelineResult) -> str:
+    """Section 2.5: Deployment Gate 3 — Parabolic Filter."""
+    gate3_tickers = []
+    for ticker, r in result.scores.items():
+        dcs = r.get("dcs", 0)
+        if dcs < 65:
+            continue
+        tech = r.get("technicals", {})
+        rsi = tech.get("rsi_14", 0)
+        ret_8w = tech.get("ret_8w", 0)
+
+        # Check signal board for parabolic warning
+        has_gate3 = False
+        sizing = "FULL"
+        for sig in r.get("signal_board", []):
+            if sig.get("legacy_prefix", "").startswith("GATE3:"):
+                has_gate3 = True
+                sizing = sig.get("metadata", {}).get("sizing", "WAIT")
+                break
+
+        gate3_tickers.append((ticker, dcs, rsi, ret_8w, sizing, has_gate3))
+
+    lines = ["## 2.5. Deployment Discipline — Gate 3", ""]
+
+    if not gate3_tickers:
+        lines.append("No buy candidates (DCS >= 65) this run.")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.append("| Ticker | DCS | RSI | 8w Return | Sizing | Status |")
+    lines.append("|--------|-----|-----|-----------|--------|--------|")
+
+    for ticker, dcs, rsi, ret_8w, sizing, has_gate3 in gate3_tickers:
+        status = f"**{sizing}**" if has_gate3 else "PASS"
+        lines.append(
+            f"| {ticker} | {dcs:.0f} | {rsi:.0f} | {_pct(ret_8w)} "
+            f"| {sizing} | {status} |"
+        )
+
+    lines.append("")
+
+    blocked = [t for t in gate3_tickers if t[5]]
+    if blocked:
+        lines.append(
+            f"> **{len(blocked)} ticker(s) have Gate 3 deployment restrictions.** "
+            "Do not deploy at full size until RSI < 80 or 8w return consolidates."
+        )
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def _build_drawdown_section(
     classifications: dict[str, str] | None,
 ) -> str:
@@ -557,10 +698,13 @@ def generate_narrative(
         _build_header(result),
         _build_macro_section(result),
         _build_dipbuy_section(result),
+        _build_gate3_section(result),
         _build_falling_knife_section(result),
         _build_watch_section(result),
         _build_reversal_section(result),
         _build_sell_criteria_section(result),
+        _build_grace_period_section(result.active_grace_periods),
+        _build_exemption_section(result.exempt_tickers),
         _build_drawdown_section(drawdown_classifications),
         _build_correlation_section(result),
         _build_sector_section(result, ticker_sectors),
