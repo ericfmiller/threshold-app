@@ -434,6 +434,20 @@ PORTFOLIO_TAX = {
 }
 
 # ---------------------------------------------------------------------------
+# Signal Aggregation Defaults (Phase 2E — disabled by default)
+# ---------------------------------------------------------------------------
+AGGREGATOR = {
+    "enabled": False,
+    "ebp_weight": 0.40,           # 40% EBP
+    "turbulence_weight": 0.30,    # 30% Turbulence
+    "crash_weight": 0.30,         # 30% Momentum Crash
+    "high_risk_threshold": 0.70,  # Composite ≥ 0.70 = HIGH_RISK
+    "elevated_threshold": 0.40,   # Composite ≥ 0.40 = ELEVATED
+    "high_risk_penalty": 10,      # DCS -10 for HIGH_RISK
+    "elevated_penalty": 5,        # DCS -5 for ELEVATED
+}
+
+# ---------------------------------------------------------------------------
 # Data Source Defaults
 # ---------------------------------------------------------------------------
 YFINANCE_DEFAULTS = {

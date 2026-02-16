@@ -31,6 +31,7 @@ from threshold.config.defaults import (
     ADVANCED_FACTOR_MOMENTUM,
     ADVANCED_SENTIMENT,
     ADVANCED_TREND_FOLLOWING,
+    AGGREGATOR,
     PORTFOLIO_HRP,
     PORTFOLIO_INVERSE_VOL,
     PORTFOLIO_TAX,
@@ -340,6 +341,21 @@ class PortfolioConstructionConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Signal Aggregation Config (Phase 2E — disabled by default)
+# ---------------------------------------------------------------------------
+
+class AggregatorConfig(BaseModel):
+    enabled: bool = AGGREGATOR["enabled"]
+    ebp_weight: float = AGGREGATOR["ebp_weight"]
+    turbulence_weight: float = AGGREGATOR["turbulence_weight"]
+    crash_weight: float = AGGREGATOR["crash_weight"]
+    high_risk_threshold: float = AGGREGATOR["high_risk_threshold"]
+    elevated_threshold: float = AGGREGATOR["elevated_threshold"]
+    high_risk_penalty: int = AGGREGATOR["high_risk_penalty"]
+    elevated_penalty: int = AGGREGATOR["elevated_penalty"]
+
+
+# ---------------------------------------------------------------------------
 # Sell Criteria Config
 # ---------------------------------------------------------------------------
 
@@ -510,6 +526,7 @@ class ThresholdConfig(BaseModel):
     portfolio_construction: PortfolioConstructionConfig = Field(
         default_factory=PortfolioConstructionConfig
     )
+    aggregator: AggregatorConfig = Field(default_factory=AggregatorConfig)
     sell_criteria: SellCriteriaConfig = Field(default_factory=SellCriteriaConfig)
     allocation: AllocationConfig = Field(default_factory=AllocationConfig)
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)
