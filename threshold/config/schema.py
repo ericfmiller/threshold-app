@@ -28,6 +28,11 @@ from threshold.config.defaults import (
     MR_WEIGHTS,
     PROFITABILITY_BLEND,
     REVISION_MOMENTUM,
+    RISK_CDAR,
+    RISK_CVAR,
+    RISK_EBP,
+    RISK_MOMENTUM_CRASH,
+    RISK_TURBULENCE,
     SA_DEFAULTS,
     SECTOR_CONCENTRATION_LIMIT,
     SECTOR_DCS_THRESHOLDS,
@@ -220,6 +225,51 @@ class ScoringConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Risk Framework Config (Phase 2B — all disabled by default)
+# ---------------------------------------------------------------------------
+
+class EBPConfig(BaseModel):
+    enabled: bool = RISK_EBP["enabled"]
+    high_risk_threshold: float = RISK_EBP["high_risk_threshold"]
+    elevated_threshold: float = RISK_EBP["elevated_threshold"]
+    normal_threshold: float = RISK_EBP["normal_threshold"]
+    lookback_months: int = RISK_EBP["lookback_months"]
+
+
+class TurbulenceConfig(BaseModel):
+    enabled: bool = RISK_TURBULENCE["enabled"]
+    window: int = RISK_TURBULENCE["window"]
+    threshold_pctl: float = RISK_TURBULENCE["threshold_pctl"]
+    min_assets: int = RISK_TURBULENCE["min_assets"]
+
+
+class MomentumCrashConfig(BaseModel):
+    enabled: bool = RISK_MOMENTUM_CRASH["enabled"]
+    lookback_months: int = RISK_MOMENTUM_CRASH["lookback_months"]
+    crash_threshold: float = RISK_MOMENTUM_CRASH["crash_threshold"]
+    min_weight: float = RISK_MOMENTUM_CRASH["min_weight"]
+
+
+class CVaRConfig(BaseModel):
+    enabled: bool = RISK_CVAR["enabled"]
+    alpha: float = RISK_CVAR["alpha"]
+    method: str = RISK_CVAR["method"]
+
+
+class CDaRConfig(BaseModel):
+    enabled: bool = RISK_CDAR["enabled"]
+    alpha: float = RISK_CDAR["alpha"]
+
+
+class RiskConfig(BaseModel):
+    ebp: EBPConfig = Field(default_factory=EBPConfig)
+    turbulence: TurbulenceConfig = Field(default_factory=TurbulenceConfig)
+    momentum_crash: MomentumCrashConfig = Field(default_factory=MomentumCrashConfig)
+    cvar: CVaRConfig = Field(default_factory=CVaRConfig)
+    cdar: CDaRConfig = Field(default_factory=CDaRConfig)
+
+
+# ---------------------------------------------------------------------------
 # Sell Criteria Config
 # ---------------------------------------------------------------------------
 
@@ -385,6 +435,7 @@ class ThresholdConfig(BaseModel):
     version: int = 1
     data_sources: DataSourcesConfig = Field(default_factory=DataSourcesConfig)
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
+    risk: RiskConfig = Field(default_factory=RiskConfig)
     sell_criteria: SellCriteriaConfig = Field(default_factory=SellCriteriaConfig)
     allocation: AllocationConfig = Field(default_factory=AllocationConfig)
     deployment: DeploymentConfig = Field(default_factory=DeploymentConfig)

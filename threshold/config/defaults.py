@@ -348,6 +348,42 @@ ALDEN_CATEGORIES = {
 }
 
 # ---------------------------------------------------------------------------
+# Risk Framework Defaults (Phase 2B — all disabled by default)
+# ---------------------------------------------------------------------------
+RISK_EBP = {
+    "enabled": False,
+    "high_risk_threshold": 1.00,   # >100bp
+    "elevated_threshold": 0.50,    # >50bp
+    "normal_threshold": 0.00,      # >0bp
+    "lookback_months": 3,
+}
+
+RISK_TURBULENCE = {
+    "enabled": False,
+    "window": 252,                 # 1-year rolling window
+    "threshold_pctl": 0.75,        # 75th percentile = turbulent
+    "min_assets": 3,
+}
+
+RISK_MOMENTUM_CRASH = {
+    "enabled": False,
+    "lookback_months": 24,         # Daniel-Moskowitz bear indicator period
+    "crash_threshold": 0.02,       # Variance threshold for crash regime
+    "min_weight": 0.25,            # Floor for momentum weight multiplier
+}
+
+RISK_CVAR = {
+    "enabled": False,
+    "alpha": 0.95,                 # 95% confidence level
+    "method": "historical",        # "historical" or "parametric"
+}
+
+RISK_CDAR = {
+    "enabled": False,
+    "alpha": 0.95,                 # α→1 = MaxDD, α→0 = AvgDD
+}
+
+# ---------------------------------------------------------------------------
 # Data Source Defaults
 # ---------------------------------------------------------------------------
 YFINANCE_DEFAULTS = {

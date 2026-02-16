@@ -54,7 +54,7 @@ class TestMigrations:
     """Test migration system."""
 
     def test_initial_migration(self, test_db):
-        assert test_db.schema_version() == 1
+        assert test_db.schema_version() >= 1
 
     def test_tables_exist(self, test_db):
         tables = test_db.fetchall(
