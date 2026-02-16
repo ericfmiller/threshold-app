@@ -230,6 +230,7 @@ class ScoringConfig(BaseModel):
         default_factory=RevisionMomentumConfig
     )
     validation: DataValidationConfig = Field(default_factory=DataValidationConfig)
+    crypto_exempt_expiry: str = ""  # ISO date e.g. "2026-11-15"
 
 
 # ---------------------------------------------------------------------------

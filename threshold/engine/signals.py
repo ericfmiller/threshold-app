@@ -394,6 +394,71 @@ def make_bottom_turning() -> Signal:
     )
 
 
+def make_grace_period_active(
+    tier: int,
+    days_remaining: int,
+    reason: str,
+) -> Signal:
+    """Hold override: ticker is in an active grace period."""
+    return Signal(
+        signal_type=SignalType.HOLD_OVERRIDE,
+        severity=Severity.MEDIUM,
+        message=(
+            f"{tier}-day grace period active ({days_remaining}d remaining) — "
+            f"sell signals softened. Reason: {reason}"
+        ),
+        legacy_prefix="GRACE_PERIOD:",
+        metadata={
+            "criterion": "grace_period",
+            "tier": tier,
+            "days_remaining": days_remaining,
+            "reason": reason,
+        },
+    )
+
+
+def make_crypto_exempt(symbol: str, expires_at: str = "") -> Signal:
+    """Hold override: ticker is crypto-exempt (halving cycle hold)."""
+    expiry_note = f" (expires {expires_at})" if expires_at else ""
+    return Signal(
+        signal_type=SignalType.HOLD_OVERRIDE,
+        severity=Severity.LOW,
+        message=(
+            f"{symbol} exempt from sell signals — Bitcoin halving "
+            f"cycle hold{expiry_note}"
+        ),
+        legacy_prefix="CRYPTO_EXEMPT:",
+        metadata={
+            "criterion": "crypto_exempt",
+            "symbol": symbol,
+            "expires_at": expires_at,
+        },
+    )
+
+
+def make_parabolic_warning(
+    rsi: float,
+    ret_8w: float,
+    sizing: str,
+) -> Signal:
+    """Deployment gate: ticker is in a parabolic move (Gate 3)."""
+    return Signal(
+        signal_type=SignalType.DEPLOYMENT_GATE,
+        severity=Severity.HIGH,
+        message=(
+            f"Gate 3 PARABOLIC: RSI {rsi:.0f}, 8w return {ret_8w:.1%} — "
+            f"sizing: {sizing}"
+        ),
+        legacy_prefix="GATE3:",
+        metadata={
+            "criterion": "parabolic_filter",
+            "rsi": rsi,
+            "ret_8w": ret_8w,
+            "sizing": sizing,
+        },
+    )
+
+
 def make_concentration_warning(
     correlated_with: list[str],
     effective_bets: float,
